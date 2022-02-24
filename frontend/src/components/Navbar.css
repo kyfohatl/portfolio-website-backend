@@ -14,10 +14,12 @@
   list-style-type: none;
   border-radius: 8px;
   font-family: 'Lobster', cursive;
+  color: lightcoral;
 }
 
 .navbar-logo:hover {
   background-color: gainsboro;
+  color: red;
 }
 
 .navbar-button {
@@ -30,4 +32,9 @@
 
 .navbar-button:hover {
   background-color: gainsboro;
+}
+
+.router-link {
+  color: black;
+  text-decoration: none;
 }
