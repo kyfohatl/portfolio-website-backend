@@ -1,0 +1,24 @@
+@font-face {
+  font-family: shizuru;
+  src: url('https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wght@1,600&display=swap');
+}
+
+.navbar {
+  background-color: seashell;
+  display: flex;
+  flex-direction: row;
+  padding: 16pt 16pt 16pt 16pt;
+  justify-content: left;
+}
+
+.navbar-button {
+  margin-right: 8px;
+  padding: 8px 8px 8px 8px;
+  list-style-type: none;
+  border-radius: 8px;
+  font-family: shizuru;
+}
+
+.navbar-button:hover {
+  background-color: gainsboro;
+}
