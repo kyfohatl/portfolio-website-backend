@@ -8,7 +8,10 @@ export default function Home() {
     <>
       <div className="background">
         <Navbar />
-        <p className="welcome-text">Welcome to my website</p>
+        <p className="welcome-text">
+          Welcome to my website!<br />
+          Explore using the navigation links
+        </p>
       </div>
     </>
   )

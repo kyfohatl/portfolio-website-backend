@@ -1,7 +1,4 @@
-@font-face {
-  font-family: shizuru;
-  src: url('https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wght@1,600&display=swap');
-}
+@import url('https://fonts.googleapis.com/css2?family=Lobster&family=Roboto+Condensed:ital@1&display=swap');
 
 .navbar {
   background-color: seashell;
@@ -11,12 +8,24 @@
   justify-content: left;
 }
 
+.navbar-logo {
+  margin-right: 32px;
+  padding: 8px 8px 8px 8px;
+  list-style-type: none;
+  border-radius: 8px;
+  font-family: 'Lobster', cursive;
+}
+
+.navbar-logo:hover {
+  background-color: gainsboro;
+}
+
 .navbar-button {
   margin-right: 8px;
   padding: 8px 8px 8px 8px;
   list-style-type: none;
   border-radius: 8px;
-  font-family: shizuru;
+  font-family: 'Roboto Condensed', sans-serif;
 }
 
 .navbar-button:hover {
