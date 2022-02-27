@@ -11,7 +11,7 @@
   color: azure;
 }
 
-.background {
+.home-background {
   background-image: url("../assets/images/backgroundImage.jpg");
   background-size: cover;
   background-position: center;
