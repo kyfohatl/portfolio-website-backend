@@ -24,3 +24,9 @@
 .skills-list {
   list-style-type: square;
 }
+
+.skills-table {
+  columns: 3;
+  list-style-type: square;
+  margin-bottom: 48px;
+}

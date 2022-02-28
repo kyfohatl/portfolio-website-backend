@@ -64,6 +64,42 @@ export default function Skills() {
           </article>
           <article className="skills-article">
             <h2>Skills</h2>
+            <h4>Languages</h4>
+            <ul className="skills-table">
+              <li>C</li>
+              <li>C++</li>
+              <li>C#</li>
+              <li>Python</li>
+              <li>Java</li>
+              <li>JavaScript</li>
+              <li>TypeScript</li>
+              <li>HTML</li>
+              <li>CSS</li>
+              <li>HLSL</li>
+            </ul>
+            <h4>Frameworks, Libraries and other</h4>
+            <ul className="skills-table">
+              <li>ReactJs</li>
+              <li>NextJs</li>
+              <li>Material UI</li>
+              <li>Node.Js</li>
+              <li>REST API</li>
+              <li>Github</li>
+              <li>Github Actions</li>
+              <li>Git</li>
+            </ul>
+            <h4>Project</h4>
+            <ul className="skills-table">
+              <li>Agile Development</li>
+              <li>Jira</li>
+              <li>Trello</li>
+              <li>Confluence</li>
+            </ul>
+            <h4>Software Concepts</h4>
+            <ul className="skills-table">
+              <li>Object Oriented Programming</li>
+              <li>Algorithms</li>
+            </ul>
           </article>
         </div>
       </div>
