@@ -8,7 +8,7 @@ export default function Navbar() {
       <li className="navbar-logo">Ehsan's Portfolio</li>
       <li className="navbar-button"><Link to="/techstack" className="router-link">Techstack</Link></li>
       <li className="navbar-button"><Link to="/about" className="router-link">About</Link></li>
-      <li className="navbar-button">Link3</li>
+      <li className="navbar-button"><Link to="/skills" className="router-link">Skills &amp; Qualifications</Link></li>
     </nav>
   )
 }

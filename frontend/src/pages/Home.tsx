@@ -6,7 +6,7 @@ export default function Home() {
   console.log(backgroundImage)
   return (
     <>
-      <div className="background">
+      <div className="home-background">
         <Navbar />
         <p className="welcome-text">
           Welcome to my website!<br />

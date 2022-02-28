@@ -7,6 +7,7 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Techstack from "./pages/Techstack";
 import About from "./pages/About";
+import Skills from "./pages/Skills";
 
 ReactDOM.render(
   <React.StrictMode>
@@ -15,6 +16,7 @@ ReactDOM.render(
         <Route path="/" element={<Home />} />
         <Route path="techstack" element={<Techstack />} />
         <Route path="about" element={<About />} />
+        <Route path="skills" element={<Skills />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,
