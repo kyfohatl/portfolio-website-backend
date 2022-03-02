@@ -1,13 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import App from './App';
 import Home from './pages/Home';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Techstack from "./pages/Techstack";
 import About from "./pages/About";
 import Skills from "./pages/Skills";
+import Examples from "./pages/Examples"
 
 ReactDOM.render(
   <React.StrictMode>
@@ -17,6 +18,7 @@ ReactDOM.render(
         <Route path="techstack" element={<Techstack />} />
         <Route path="about" element={<About />} />
         <Route path="skills" element={<Skills />} />
+        <Route path="examples" element={<Examples />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,

@@ -1,0 +1,22 @@
+.examples-background {
+  background-color: seashell;
+  min-height: 100vh;
+  min-width: 100vw;
+}
+
+.examples-content {
+  display: flex;
+  justify-content: center;
+}
+
+.examples-content-block {
+  max-width: 1000px;
+}
+
+.examples-article {
+  margin-top: 72px;
+}
+
+.examples-list {
+  list-style-type: square;
+}
