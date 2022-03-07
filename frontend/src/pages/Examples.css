@@ -18,5 +18,10 @@
 }
 
 .examples-list {
-  list-style-type: square;
+  list-style-type: none;
+}
+
+.examples-mobile-images {
+  display: flex;
+  column-gap: 24px;
 }
