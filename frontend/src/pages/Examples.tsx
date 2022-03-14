@@ -5,6 +5,7 @@ import cataLogCreateAccImg from "../assets/images/catalog-create-acc.png"
 import cataLogHomeImg from "../assets/images/catalog-home.png"
 import cataLogSearchImg from "../assets/images/catalog-search.png"
 import cataLogManualContactImg from "../assets/images/catalog-manual-contact.png"
+import cataLogMergeImg from "../assets/images/catalog-merge.png"
 import cataLogCreateOrgImg from "../assets/images/catalog-create-org.png"
 import cataLogMobileHomeImg from "../assets/images/catalog-mobile-home.png"
 import cataLogMobileContactImg from "../assets/images/catalog-mobile-contact.png"
@@ -49,6 +50,10 @@ export default function Examples() {
               <li>
                 <p>Creating manual contact entries for contacts not on the CataLog network</p>
                 <img src={cataLogManualContactImg} alt="Create manual contact page" width="80%" height="80%" />
+              </li>
+              <li>
+                <p>Merging newly-added CataLog profiles with existing manual profiles</p>
+                <img src={cataLogMergeImg} alt="Create manual contact page" width="80%" height="80%" />
               </li>
               <li>
                 <p>Creating and interacting with organizations</p>
