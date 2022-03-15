@@ -3,14 +3,19 @@ import express from "express"
 const app = express()
 app.use(express.json())
 
-const users = []
+interface User {
+  name: String,
+  password: String
+}
+
+const users: User[] = []
 
 app.get("/users", (req, res) => {
   res.json(users)
 })
 
 app.post("/users", (req, res) => {
-  const user = {
+  const user: User = {
     name: req.body.name,
     password: req.body.password
   }

@@ -3,17 +3,20 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "type": "module",
   "scripts": {
-    "devStart": "nodemon server.js"
+    "devStart": "nodemon server.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.17.2"
+    "@types/express": "^4.17.13",
+    "@types/node": "^17.0.21",
+    "express": "^4.17.2",
+    "typescript": "^4.6.2"
   },
   "devDependencies": {
-    "nodemon": "^2.0.15"
+    "nodemon": "^2.0.15",
+    "ts-node": "^10.7.0"
   }
 }
