@@ -21,8 +21,9 @@ app.get("/users", authenticateToken, (req, res) => {
   res.json(users)
 })
 
+const port = process.env.PORT || 3000
 app.listen(8000, () => {
-  console.log("Listening on port 8000")
+  console.log("Listening on port " + port)
 })
 
 function authenticateToken(req: Request, res: Response, next: NextFunction) {
