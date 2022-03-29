@@ -5,10 +5,10 @@ import express from "express"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 
-import { AuthUser } from "./custom"
+import { AuthUser } from "../custom"
 
-const app = express()
-app.use(express.json())
+export const router = express.Router()
+router.use(express.json())
 
 
 interface User {
@@ -21,7 +21,7 @@ const users: User[] = []
 let refreshTokens: string[] = []
 
 // Create a new user with the given username and password
-app.post("/users", async (req, res) => {
+router.post("/users", async (req, res) => {
 
   try {
     const passHash: string = await bcrypt.hash(req.body.password, 10)
@@ -38,7 +38,7 @@ app.post("/users", async (req, res) => {
 })
 
 // Login the given user with the given username and password, if correct
-app.post("/users/login", async (req, res) => {
+router.post("/users/login", async (req, res) => {
   const user = users.find(user => user.name === req.body.name)
   if (user == null) {
     // Username does not exist
@@ -61,7 +61,7 @@ app.post("/users/login", async (req, res) => {
 })
 
 // Generates a new access & refresh token pair if the given refresh token is valid
-app.post("/token", (req, res) => {
+router.post("/token", (req, res) => {
   const refreshToken: string = req.body.token
   if (!refreshToken) return res.sendStatus(401)
   if (!refreshTokens.includes(refreshToken)) return res.sendStatus(403)
@@ -77,15 +77,11 @@ app.post("/token", (req, res) => {
 })
 
 // Logout user
-app.delete("/users/logout", (req, res) => {
+router.delete("/users/logout", (req, res) => {
   const refreshToken: string = req.body.token
   if (!refreshToken) return res.sendStatus(401)
   deleteRefreshToken(refreshToken)
   res.sendStatus(204)
-})
-
-app.listen(8001, () => {
-  console.log("Listening on port 8001")
 })
 
 function generateAccessToken(authUser: AuthUser) {

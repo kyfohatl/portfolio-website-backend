@@ -5,6 +5,7 @@ import express, { Request, Response, NextFunction } from "express"
 import jwt from "jsonwebtoken"
 
 import { AuthUser } from "./custom"
+import { router } from "./routes/authserver"
 
 const app = express()
 app.use(express.json())
@@ -16,6 +17,9 @@ interface User {
 }
 
 const users: User[] = []
+
+// Authentication routes
+app.use("/auth", router)
 
 app.get("/users", authenticateToken, (req, res) => {
   res.json(users)
