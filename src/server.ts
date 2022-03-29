@@ -6,10 +6,11 @@ import jwt from "jsonwebtoken"
 
 import { AuthUser } from "./custom"
 import { router } from "./routes/authserver"
+import database from "./herokuClient"
 
+// Start up express
 const app = express()
 app.use(express.json())
-
 
 interface User {
   name: string,
