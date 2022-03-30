@@ -6,18 +6,11 @@ import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 
 import { AuthUser } from "../custom"
-import database from "../herokuClient"
+import User from "../models/user"
 
 export const router = express.Router()
 router.use(express.json())
 
-
-interface User {
-  name: string,
-  password: string
-}
-
-const users: User[] = []
 
 let refreshTokens: string[] = []
 
@@ -26,59 +19,33 @@ router.post("/users", async (req, res) => {
 
   try {
     const passHash: string = await bcrypt.hash(req.body.password, 10)
-    const user: User = {
-      name: req.body.name,
-      password: passHash
-    }
-
-    // Create new user in the database
-    const queryStr = `
-      INSERT INTO users(username,password)
-      VALUES ($1, $2)
-    `
-    const queryVals = [user.name, user.password]
-    database.query(queryStr, queryVals, (err, data) => {
-      if (err) res.sendStatus(500)
-      res.status(201).send("New user added")
-    })
-    //users.push(user)
-  } catch {
-    res.status(500).send()
+    const user = await User.create(req.body.username, passHash)
+    res.status(201).json({ id: user.id })
+  } catch (err) {
+    res.status(500).send(err)
   }
 })
 
 // Login the given user with the given username and password, if correct
 router.post("/users/login", async (req, res) => {
-  //const user = users.find(user => user.name === req.body.name)
-  // Get the user
-  const queryStr = `
-    SELECT * FROM users
-    WHERE username=$1
-  `
-  const queryVals = [req.body.name]
-  database.query(queryStr, queryVals, async (err, data) => {
-    if (err) res.sendStatus(500)
-
-    const user = data.rows[0]
-    if (!user) {
-      // Username does not exist
-      return res.status(400).send("Username or password is incorrect")
-    }
+  try {
+    // Get the user
+    const users = await User.where(req.body.username)
+    if (users.length == 0) return res.status(400).send("Username or password is incorrect")
+    const user = users[0]
 
     // Check if password hashes match
-    try {
-      if (await bcrypt.compare(req.body.password, user.password)) {
-        // Correct credentials. Send access & refresh token pair
-        const authUser: AuthUser = { name: user.name }
-        res.json(generateTokenPair(authUser))
-      } else {
-        // Incorrect credentials
-        res.status(400).send("Username or password is incorrect")
-      }
-    } catch {
-      res.status(500).send()
+    if (await bcrypt.compare(req.body.password, user.password)) {
+      // Correct credentials. Send access & refresh token pair
+      const authUser: AuthUser = { id: user.id }
+      res.json(generateTokenPair(authUser))
+    } else {
+      // Incorrect credentials
+      res.status(400).send("Username or password is incorrect")
     }
-  })
+  } catch (err) {
+    res.status(500).send(err)
+  }
 })
 
 // Generates a new access & refresh token pair if the given refresh token is valid
@@ -93,7 +60,7 @@ router.post("/token", (req, res) => {
     // Remove old refresh token
     deleteRefreshToken(refreshToken)
     // Generate new refresh & access pair and send
-    res.json(generateTokenPair({ name: (user as User).name }))
+    res.json(generateTokenPair({ id: (user as AuthUser).id }))
   })
 })
 
