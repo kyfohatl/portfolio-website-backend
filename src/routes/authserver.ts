@@ -7,12 +7,10 @@ import jwt from "jsonwebtoken"
 
 import { AuthUser } from "../custom"
 import User from "../models/user"
+import database from "../herokuClient"
 
 export const router = express.Router()
 router.use(express.json())
-
-
-let refreshTokens: string[] = []
 
 // Create a new user with the given username and password
 router.post("/users", async (req, res) => {
@@ -52,15 +50,37 @@ router.post("/users/login", async (req, res) => {
 router.post("/token", (req, res) => {
   const refreshToken: string = req.body.token
   if (!refreshToken) return res.sendStatus(401)
-  if (!refreshTokens.includes(refreshToken)) return res.sendStatus(403)
 
-  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET as string, (err, user) => {
-    if (err || user == undefined) return res.sendStatus(403)
+  // Check if the refresh token exists in the database
+  const queryStr = `
+    SELECT EXISTS(
+        SELECT 1
+        FROM refresh_tokens
+        WHERE token = $1
+      );
+  `
+  const queryVals = [refreshToken]
+  database.query(queryStr, queryVals, (err, data) => {
+    if (err) return res.status(500).send(err)
+    if (data.rows[0].exists) {
+      // Token exists in database. Verify it
+      jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET as string, (err, user) => {
+        if (err || user == undefined) return res.sendStatus(403)
 
-    // Remove old refresh token
-    deleteRefreshToken(refreshToken)
-    // Generate new refresh & access pair and send
-    res.json(generateTokenPair({ id: (user as AuthUser).id }))
+        try {
+          // Remove old refresh token
+          deleteRefreshToken(refreshToken)
+          // Generate new refresh & access pair and send
+          res.json(generateTokenPair({ id: (user as AuthUser).id }))
+        } catch (err) {
+          // Failed to replace old token with new pair
+          return res.status(500).send(err)
+        }
+      })
+    } else {
+      // refresh token does not exist in the database
+      res.status(403).send("Invalid refresh token")
+    }
   })
 })
 
@@ -78,16 +98,37 @@ function generateAccessToken(authUser: AuthUser) {
 
 function generateRefreshToken(authUser: AuthUser) {
   const refreshToken = jwt.sign(authUser, process.env.REFRESH_TOKEN_SECRET as string)
-  refreshTokens.push(refreshToken)
+
+  // Add refresh token to the database
+  const queryStr = `
+    INSERT INTO refresh_tokens(token)
+    VALUES ($1);
+  `
+  const queryVals = [refreshToken]
+  database.query(queryStr, queryVals, (err, data) => {
+    if (err) throw err
+  })
+
   return refreshToken
 }
 
 function generateTokenPair(authUser: AuthUser) {
-  const accessToken = generateAccessToken(authUser)
-  const refreshToken = generateRefreshToken(authUser)
-  return { accessToken: accessToken, refreshToken: refreshToken }
+  try {
+    const accessToken = generateAccessToken(authUser)
+    const refreshToken = generateRefreshToken(authUser)
+    return { accessToken: accessToken, refreshToken: refreshToken }
+  } catch (err) {
+    throw err
+  }
 }
 
 function deleteRefreshToken(refreshToken: string) {
-  refreshTokens = refreshTokens.filter(token => token !== refreshToken)
+  const queryStr = `
+    DELETE FROM refresh_tokens
+    WHERE token = $1;
+  `
+  const queryVals = [refreshToken]
+  database.query(queryStr, queryVals, (err, data) => {
+    if (err) throw err
+  })
 }
