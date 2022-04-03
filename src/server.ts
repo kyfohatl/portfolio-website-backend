@@ -2,6 +2,7 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import express, { Request, Response, NextFunction } from "express"
+import cors from "cors"
 import jwt from "jsonwebtoken"
 
 import { AuthUser } from "./custom"
@@ -11,6 +12,9 @@ import database from "./herokuClient"
 // Start up express
 const app = express()
 app.use(express.json())
+// Setup cors
+app.use(cors())
+
 
 interface User {
   name: string,
