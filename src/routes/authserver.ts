@@ -21,6 +21,7 @@ router.post("/users", async (req, res) => {
     res.status(201).json({ id: user.id })
   } catch (err) {
     res.status(500).send(err)
+    console.log(err)
   }
 })
 
