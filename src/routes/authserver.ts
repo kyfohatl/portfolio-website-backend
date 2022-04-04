@@ -12,6 +12,15 @@ import database from "../herokuClient"
 export const router = express.Router()
 router.use(express.json())
 
+interface PostgresErr {
+  code: string
+}
+
+// Returns true if the given error is a valid postgres error and false otherwise
+function ensureValidPostgresErr(err: unknown): err is PostgresErr {
+  return (!!err && typeof err === "object" && "code" in err && typeof (err as PostgresErr).code === "string")
+}
+
 // Create a new user with the given username and password
 router.post("/users", async (req, res) => {
 
@@ -20,8 +29,12 @@ router.post("/users", async (req, res) => {
     const user = await User.create(req.body.username, passHash)
     res.status(201).json({ id: user.id })
   } catch (err) {
-    res.status(500).send(err)
-    console.log(err)
+    if (ensureValidPostgresErr(err)) {
+      // Check if email already exists on the database
+      if (err.code === "23505") return res.status(500).json({ error: { email: "Email already exists!" } })
+    }
+
+    res.status(500).json({ error: { generic: err } })
   }
 })
 

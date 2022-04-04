@@ -42,7 +42,6 @@ export default class User {
     const promise = new Promise<User>((resolve, reject) => {
       database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject(err)
-        console.log("data is: ",data)
         if (!data || data.rows.length !== 1) return reject(new Error("User creation failed"))
         resolve(new User(data.rows[0].id, username, password))
       })
