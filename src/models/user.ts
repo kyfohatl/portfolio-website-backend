@@ -21,7 +21,7 @@ export default class User {
 
     const promise = new Promise<User[]>((resolve, reject) => {
       database.query<{ id: string, username: string, password: string }>(queryStr, queryVals, (err, data) => {
-        if (err) reject(err)
+        if (err) return reject(err)
         // Create a new User class instance for each row that is returned
         resolve(data.rows.map((row) => new User(row.id, row.username, row.password)))
       })

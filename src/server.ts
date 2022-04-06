@@ -26,8 +26,8 @@ const users: User[] = []
 // Authentication routes
 app.use("/auth", router)
 
-app.get("/users", authenticateToken, (req, res) => {
-  res.json(users)
+app.get("/test", authenticateToken, (req, res) => {
+  res.json("Hello you are authenticated")
 })
 
 const port = process.env.PORT || 3000

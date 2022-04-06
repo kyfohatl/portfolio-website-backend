@@ -38,25 +38,28 @@ router.post("/users", async (req, res) => {
   }
 })
 
+const incorrectUserOrPassStr = "Username or password is incorrect"
+
 // Login the given user with the given username and password, if correct
 router.post("/users/login", async (req, res) => {
   try {
     // Get the user
     const users = await User.where(req.body.username)
-    if (users.length == 0) return res.status(400).send("Username or password is incorrect")
+    if (users.length == 0) return res.status(400).json({ error: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr } })
+
     const user = users[0]
 
     // Check if password hashes match
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
       const authUser: AuthUser = { id: user.id }
-      res.json(generateTokenPair(authUser))
+      res.json({ success: generateTokenPair(authUser) })
     } else {
       // Incorrect credentials
-      res.status(400).send("Username or password is incorrect")
+      res.status(400).send({ error: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr } })
     }
   } catch (err) {
-    res.status(500).send(err)
+    res.status(500).json({ error: { generic: err } })
   }
 })
 
@@ -85,7 +88,7 @@ router.post("/token", (req, res) => {
           // Remove old refresh token
           deleteRefreshToken(refreshToken)
           // Generate new refresh & access pair and send
-          res.json(generateTokenPair({ id: (user as AuthUser).id }))
+          res.json({ success: generateTokenPair({ id: (user as AuthUser).id }) })
         } catch (err) {
           // Failed to replace old token with new pair
           return res.status(500).send(err)
