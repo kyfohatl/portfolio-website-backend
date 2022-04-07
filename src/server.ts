@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken"
 import { AuthUser } from "./custom"
 import { router } from "./routes/authserver"
 import database from "./herokuClient"
+import Token from "./models/token"
 
 // Start up express
 const app = express()
@@ -26,7 +27,7 @@ const users: User[] = []
 // Authentication routes
 app.use("/auth", router)
 
-app.get("/test", authenticateToken, (req, res) => {
+app.get("/test", Token.authenticateToken, (req, res) => {
   res.json("Hello you are authenticated")
 })
 
@@ -34,17 +35,3 @@ const port = process.env.PORT || 3000
 app.listen(port, () => {
   console.log("Listening on port " + port)
 })
-
-function authenticateToken(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(" ")[1]
-
-  if (token == null) return res.sendStatus(401)
-
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string, (err, authUser) => {
-    if (err) return res.sendStatus(403)
-
-    req.authUser = authUser as AuthUser
-    next()
-  })
-}

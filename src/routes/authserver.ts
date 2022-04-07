@@ -3,10 +3,10 @@ dotenv.config()
 
 import express from "express"
 import bcrypt from "bcrypt"
-import jwt from "jsonwebtoken"
 
 import { AuthUser } from "../custom"
 import User from "../models/user"
+import Token from "../models/token"
 import database from "../herokuClient"
 
 export const router = express.Router()
@@ -53,7 +53,7 @@ router.post("/users/login", async (req, res) => {
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
       const authUser: AuthUser = { id: user.id }
-      res.json({ success: generateTokenPair(authUser) })
+      res.json({ success: Token.generateTokenPair(authUser) })
     } else {
       // Incorrect credentials
       res.status(400).send({ error: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr } })
@@ -64,88 +64,33 @@ router.post("/users/login", async (req, res) => {
 })
 
 // Generates a new access & refresh token pair if the given refresh token is valid
-router.post("/token", (req, res) => {
+router.post("/token", async (req, res) => {
   const refreshToken: string = req.body.token
   if (!refreshToken) return res.sendStatus(401)
 
-  // Check if the refresh token exists in the database
-  const queryStr = `
-    SELECT EXISTS(
-        SELECT 1
-        FROM refresh_tokens
-        WHERE token = $1
-      );
-  `
-  const queryVals = [refreshToken]
-  database.query(queryStr, queryVals, (err, data) => {
-    if (err) return res.status(500).send(err)
-    if (data.rows[0].exists) {
-      // Token exists in database. Verify it
-      jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET as string, (err, user) => {
-        if (err || user == undefined) return res.sendStatus(403)
-
-        try {
-          // Remove old refresh token
-          deleteRefreshToken(refreshToken)
-          // Generate new refresh & access pair and send
-          res.json({ success: generateTokenPair({ id: (user as AuthUser).id }) })
-        } catch (err) {
-          // Failed to replace old token with new pair
-          return res.status(500).send(err)
-        }
-      })
+  try {
+    // Check for the validity of the given refresh token
+    const data = await Token.verifyRefToken(refreshToken)
+    if (data.isValid) {
+      // Refresh token is valid
+      // Remove old refresh token
+      Token.deleteRefreshToken(refreshToken)
+      // Generate new refresh & access pair and send
+      res.json({ success: Token.generateTokenPair(data.user) })
     } else {
-      // refresh token does not exist in the database
-      res.status(403).send("Invalid refresh token")
+      // Refresh token is invalid
+      res.status(403).send({ error: { generic: "Invalid refresh token" } })
     }
-  })
+  } catch (err) {
+    // System failed to complete required operations
+    res.status(500).json({ error: { generic: err } })
+  }
 })
 
 // Logout user
 router.delete("/users/logout", (req, res) => {
   const refreshToken: string = req.body.token
   if (!refreshToken) return res.sendStatus(401)
-  deleteRefreshToken(refreshToken)
+  Token.deleteRefreshToken(refreshToken)
   res.sendStatus(204)
 })
-
-function generateAccessToken(authUser: AuthUser) {
-  return jwt.sign(authUser, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: "15m" })
-}
-
-function generateRefreshToken(authUser: AuthUser) {
-  const refreshToken = jwt.sign(authUser, process.env.REFRESH_TOKEN_SECRET as string)
-
-  // Add refresh token to the database
-  const queryStr = `
-    INSERT INTO refresh_tokens(token)
-    VALUES ($1);
-  `
-  const queryVals = [refreshToken]
-  database.query(queryStr, queryVals, (err, data) => {
-    if (err) throw err
-  })
-
-  return refreshToken
-}
-
-function generateTokenPair(authUser: AuthUser) {
-  try {
-    const accessToken = generateAccessToken(authUser)
-    const refreshToken = generateRefreshToken(authUser)
-    return { accessToken: accessToken, refreshToken: refreshToken }
-  } catch (err) {
-    throw err
-  }
-}
-
-function deleteRefreshToken(refreshToken: string) {
-  const queryStr = `
-    DELETE FROM refresh_tokens
-    WHERE token = $1;
-  `
-  const queryVals = [refreshToken]
-  database.query(queryStr, queryVals, (err, data) => {
-    if (err) throw err
-  })
-}
