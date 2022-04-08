@@ -1,14 +1,13 @@
 import dotenv from "dotenv"
 dotenv.config()
 
-import express, { Request, Response, NextFunction } from "express"
+import express from "express"
 import cors from "cors"
-import jwt from "jsonwebtoken"
 
 import { AuthUser } from "./custom"
 import { router } from "./routes/authserver"
 import database from "./herokuClient"
-import Token from "./models/token"
+import { authenticateToken } from "./middleware/auth"
 
 // Start up express
 const app = express()
@@ -27,7 +26,7 @@ const users: User[] = []
 // Authentication routes
 app.use("/auth", router)
 
-app.get("/test", Token.authenticateToken, (req, res) => {
+app.get("/test", authenticateToken, (req, res) => {
   res.json("Hello you are authenticated")
 })
 

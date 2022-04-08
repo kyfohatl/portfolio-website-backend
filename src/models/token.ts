@@ -1,7 +1,6 @@
 import dotenv from "dotenv"
 dotenv.config()
 
-import { Request, Response, NextFunction } from "express"
 import jwt from "jsonwebtoken"
 import database from "../herokuClient"
 
@@ -66,22 +65,6 @@ export default class Token {
       // Database operation failed. Throw error
       throw err
     }
-  }
-
-  // Express middleware function. Will respond with a 403 if failed to authenticate, otherwise will add 
-  // authenticated information to the request object
-  static authenticateToken(req: Request, res: Response, next: NextFunction) {
-    const authHeader = req.headers['authorization']
-    const token = authHeader && authHeader.split(" ")[1]
-
-    if (token == null) return res.sendStatus(401)
-
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string, (err, authUser) => {
-      if (err) return res.sendStatus(403)
-
-      req.authUser = authUser as AuthUser
-      next()
-    })
   }
 
   static generateAccessToken(authUser: AuthUser) {
