@@ -7,7 +7,6 @@ import bcrypt from "bcrypt"
 import { AuthUser } from "../custom"
 import User from "../models/user"
 import Token from "../models/token"
-import database from "../herokuClient"
 
 export const router = express.Router()
 router.use(express.json())
