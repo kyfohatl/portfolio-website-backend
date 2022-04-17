@@ -5,9 +5,10 @@ import express from "express"
 import cors from "cors"
 
 import { AuthUser } from "./custom"
-import { router } from "./routes/authserver"
+import { router as authRouter } from "./routes/authserver"
 import database from "./herokuClient"
 import { authenticateToken } from "./middleware/auth"
+import {router as blogRouter} from "./routes/blog"
 
 // Start up express
 const app = express()
@@ -24,7 +25,9 @@ interface User {
 const users: User[] = []
 
 // Authentication routes
-app.use("/auth", router)
+app.use("/auth", authRouter)
+// Blog routes
+app.use("/blog", blogRouter)
 
 app.get("/test", authenticateToken, (req, res) => {
   res.json("Hello you are authenticated")

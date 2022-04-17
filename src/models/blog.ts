@@ -91,8 +91,9 @@ export default class Blog {
   }
 
   // Stores a new blog with the given information in the database
-  static create(userId: string, html: string, css: string, creationDate: string) {
+  static create(userId: string, html: string, css: string) {
     const summary = Blog.extractSummary(html)
+    const creationDate = new Date()
 
     const queryStr = `
       INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)

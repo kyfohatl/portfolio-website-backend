@@ -1,4 +1,5 @@
 import express, { Request } from "express"
+import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
 import Blog from "../models/blog"
 
 export const router = express.Router()
@@ -22,23 +23,20 @@ router.get("/", async (req: TypedRequestBody<{ pageNum: number }>, res) => {
 })
 
 interface CreateBlogProps {
-  userId: string,
   html: string,
-  css: string,
-  creationDate: string
+  css: string
 }
 
 // Create a new blog with the given information
-router.post("/create", async (req: TypedRequestBody<CreateBlogProps>, res) => {
-  const userId = req.body.userId
+router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlogProps>, res: AuthenticatedResponse) => {
+  const userId = res.locals.authUser.id
   const html = req.body.html
   const css = req.body.css
-  const creationDate = req.body.creationDate
 
-  if (!userId || html || creationDate) return res.status(400).json({ error: { generic: "Missing details!" } })
+  if (!userId || html) return res.status(400).json({ error: { generic: "Missing details!" } })
 
   try {
-    await Blog.create(userId, html, css, creationDate)
+    await Blog.create(userId, html, css)
     res.sendStatus(201)
   } catch (err) {
     res.status(500).json({ error: { generic: err } })
