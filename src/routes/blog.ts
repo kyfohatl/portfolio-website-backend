@@ -33,11 +33,11 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
   const html = req.body.html
   const css = req.body.css
 
-  if (!userId || html) return res.status(400).json({ error: { generic: "Missing details!" } })
+  if (!userId || !html) return res.status(400).json({ error: { generic: "Missing details!" } })
 
   try {
     await Blog.create(userId, html, css)
-    res.sendStatus(201)
+    res.status(201).json({ success: { blog: "Created" } })
   } catch (err) {
     res.status(500).json({ error: { generic: err } })
   }
