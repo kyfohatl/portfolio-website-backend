@@ -37,7 +37,7 @@ export default class Blog {
       SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img
       FROM blogs
       ORDER BY created
-      LIMIT $1 OFFSET $2
+      LIMIT $1 OFFSET $2;
     `
     const queryVals = [limit, offset]
 
@@ -91,20 +91,40 @@ export default class Blog {
   }
 
   // Stores a new blog with the given information in the database
-  static create(userId: string, html: string, css: string) {
+  static save(userId: string, html: string, css: string, blogId?: string | null) {
     const summary = Blog.extractSummary(html)
-    const creationDate = new Date()
+    const curDate = new Date()
+    
+    let queryStr: string
+    let queryVals: (string | Date)[]
+    if (blogId) {
+      queryStr = `
+        UPDATE blogs
+        SET
+          html = $1,
+          css = $2,
+          last_edited = $3,
+          summary_title = $4,
+          summary_description = $5,
+          summary_img = $6
+        WHERE id = $7
+        RETURNING id;
+      `
+      queryVals = [html, css, curDate, summary.title, summary.description, summary.image, blogId]
+    } else {
+      queryStr = `
+        INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)
+        VALUES($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id;
+      `
+      queryVals = [userId, html, css, curDate, summary.title, summary.description, summary.image]
+    }
 
-    const queryStr = `
-      INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)
-      VALUES($1, $2, $3, $4, $5, $6, $7)
-    `
-    const queryVals = [userId, html, css, creationDate, summary.title, summary.description, summary.image]
-
-    const promise = new Promise<true>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+    const promise = new Promise<string>((resolve, reject) => {
+      database.query<{id: string}>(queryStr, queryVals, (err, data) => {
         if (err) return reject(err)
-        return resolve(true)
+        if (data.rowCount <= 0) return reject(new Error("Error: Could not save blog into database"))
+        return resolve(data.rows[0].id)
       })
     })
 

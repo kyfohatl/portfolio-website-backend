@@ -24,7 +24,8 @@ router.get("/", async (req: TypedRequestBody<{ pageNum: number }>, res) => {
 
 interface CreateBlogProps {
   html: string,
-  css: string
+  css: string,
+  blogId?: string | null
 }
 
 // Create a new blog with the given information
@@ -32,12 +33,13 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
   const userId = res.locals.authUser.id
   const html = req.body.html
   const css = req.body.css
+  let blogId = req.body.blogId
 
   if (!userId || !html) return res.status(400).json({ error: { generic: "Missing details!" } })
 
   try {
-    await Blog.create(userId, html, css)
-    res.status(201).json({ success: { blog: "Created" } })
+    blogId = await Blog.save(userId, html, css, blogId)
+    res.status(201).json({ success: { id: blogId } })
   } catch (err) {
     res.status(500).json({ error: { generic: err } })
   }
