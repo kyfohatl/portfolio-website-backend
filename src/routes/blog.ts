@@ -22,6 +22,16 @@ router.get("/", async (req: TypedRequestBody<{ pageNum: number }>, res) => {
   }
 })
 
+// Respond with the content of the requested blog if it exists
+router.get("/:blogId", async (req, res) => {
+  try {
+    const blog = await Blog.where(req.params.blogId)
+    res.json({ success: { blog: blog } })
+  } catch (err) {
+    res.status(500).json({ error: { generic: err } })
+  }
+})
+
 interface CreateBlogProps {
   html: string,
   css: string,

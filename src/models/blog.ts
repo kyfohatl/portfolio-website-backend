@@ -1,5 +1,16 @@
 import database from "../herokuClient"
 
+interface BlogProps {
+  id: string,
+  userId: string,
+  html: string,
+  css: string,
+  creationDate: string,
+  summaryTitle: string,
+  summaryDescription: string,
+  summaryImg: string
+}
+
 export default class Blog {
   id: string
   userId: string
@@ -30,6 +41,35 @@ export default class Blog {
     this.summaryImg = summaryImg
   }
 
+  // Returns the blog with the given blogId if it exists
+  static where(blogId: string) {
+    const queryStr = `
+      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img
+      FROM blogs
+      WHERE id=$1
+    `
+    const queryVals = [blogId]
+
+    const promise = new Promise<Blog>((resolve, reject) => {
+      database.query<BlogProps>(queryStr, queryVals, (err, data) => {
+        if (err) return reject(err)
+        const blog = data.rows[0]
+        return resolve(new Blog(
+          blog.id,
+          blog.userId,
+          blog.html,
+          blog.css,
+          blog.creationDate,
+          blog.summaryTitle,
+          blog.summaryDescription,
+          blog.summaryImg
+        ))
+      })
+    })
+
+    return promise
+  }
+
   // Returns a list of the most recently created blogs, limited by the given limit and starting from the
   // given offset
   static mostRecent(limit: number, offset: number) {
@@ -42,16 +82,7 @@ export default class Blog {
     const queryVals = [limit, offset]
 
     const promise = new Promise<Blog[]>((resolve, reject) => {
-      database.query<{
-        id: string,
-        userId: string,
-        html: string,
-        css: string,
-        creationDate: string,
-        summaryTitle: string,
-        summaryDescription: string,
-        summaryImg: string
-      }>(queryStr, queryVals, (err, data) => {
+      database.query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject(err)
         const blogs = data.rows.map((blog) => {
           return new Blog(
@@ -87,14 +118,14 @@ export default class Blog {
     const imageMatch = html.match(/<meta\s+.*?property="og:image"\s+.*?content=(["'])((?:\\.|[^\\])*?)\1/)
     if (imageMatch) image = imageMatch[2]
 
-    return {title: title, description: description, image: image}
+    return { title: title, description: description, image: image }
   }
 
   // Stores a new blog with the given information in the database
   static save(userId: string, html: string, css: string, blogId?: string | null) {
     const summary = Blog.extractSummary(html)
     const curDate = new Date()
-    
+
     let queryStr: string
     let queryVals: (string | Date)[]
     if (blogId) {
@@ -121,7 +152,7 @@ export default class Blog {
     }
 
     const promise = new Promise<string>((resolve, reject) => {
-      database.query<{id: string}>(queryStr, queryVals, (err, data) => {
+      database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject(err)
         if (data.rowCount <= 0) return reject(new Error("Error: Could not save blog into database"))
         return resolve(data.rows[0].id)
