@@ -4,9 +4,10 @@ dotenv.config()
 import express from "express"
 import bcrypt from "bcrypt"
 
-import { AuthUser } from "../custom"
+import { AuthUser, BackendError, BackendResponse } from "../custom"
 import User from "../models/user"
 import Token from "../models/token"
+import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 
 export const router = express.Router()
 router.use(express.json())
@@ -26,14 +27,22 @@ router.post("/users", async (req, res) => {
   try {
     const passHash: string = await bcrypt.hash(req.body.password, 10)
     const user = await User.create(req.body.username, passHash)
-    res.status(201).json({ id: user.id })
+    sendSuccessResponse(res, { id: user.id }, 201)
   } catch (err) {
-    if (ensureValidPostgresErr(err)) {
-      // Check if email already exists on the database
-      if (err.code === "23505") return res.status(500).json({ error: { email: "Email already exists!" } })
+    const castError = err as BackendError
+    if ("unknown" in castError) {
+      if (ensureValidPostgresErr(castError.unknown)) {
+        // Check if email already exists on the database
+        if (castError.unknown.code === "23505") {
+          // Email already exists. Send specific error
+          return res.status(400).json({
+            complexError: { object: { email: "Email already exists!" } }
+          } as BackendResponse)
+        }
+      }
     }
 
-    res.status(500).json({ error: { generic: err } })
+    sendErrorResponse(res, castError)
   }
 })
 

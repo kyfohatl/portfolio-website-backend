@@ -1,3 +1,4 @@
+import { BackendError } from "../custom"
 import database from "../herokuClient"
 
 export default class User {
@@ -21,7 +22,9 @@ export default class User {
 
     const promise = new Promise<User[]>((resolve, reject) => {
       database.query<{ id: string, username: string, password: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
+        if (err) return reject({ unknown: err } as BackendError)
+        if (data.rowCount <= 0) return reject({ simple: { code: 400, message: "No users found" } } as BackendError)
+
         // Create a new User class instance for each row that is returned
         resolve(data.rows.map((row) => new User(row.id, row.username, row.password)))
       })
@@ -41,8 +44,11 @@ export default class User {
 
     const promise = new Promise<User>((resolve, reject) => {
       database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
-        if (!data || data.rows.length !== 1) return reject(new Error("User creation failed"))
+        if (err) return reject({ unknown: err } as BackendError)
+        if (!data || data.rows.length !== 1) return reject({
+          simple: { code: 500, message: "User creation failed" }
+        } as BackendError)
+
         resolve(new User(data.rows[0].id, username, password))
       })
     })

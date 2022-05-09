@@ -1,3 +1,4 @@
+import { BackendError } from "../custom"
 import database from "../herokuClient"
 
 interface BlogProps {
@@ -52,7 +53,12 @@ export default class Blog {
 
     const promise = new Promise<Blog>((resolve, reject) => {
       database.query<BlogProps>(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
+        if (err) return reject({ unknown: err } as BackendError)
+        if (data.rowCount <= 0) {
+          // Could not find given blog id
+          return reject({ simple: { code: 400, message: "Given blog id does not exist!" } } as BackendError)
+        }
+
         const blog = data.rows[0]
         return resolve(new Blog(
           blog.id,
@@ -83,7 +89,9 @@ export default class Blog {
 
     const promise = new Promise<Blog[]>((resolve, reject) => {
       database.query<BlogProps>(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
+        if (err) return reject({ unknown: err } as BackendError)
+        if (data.rowCount <= 0) return reject({ simple: { code: 400, message: "No blogs to show" } } as BackendError)
+
         const blogs = data.rows.map((blog) => {
           return new Blog(
             blog.id,
@@ -153,8 +161,11 @@ export default class Blog {
 
     const promise = new Promise<string>((resolve, reject) => {
       database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
-        if (data.rowCount <= 0) return reject(new Error("Error: Could not save blog into database"))
+        if (err) return reject({ unknown: err } as BackendError)
+        if (data.rowCount <= 0) {
+          return reject({ simple: { code: 500, message: "Error: Could not save blog into database" } } as BackendError)
+        }
+
         return resolve(data.rows[0].id)
       })
     })

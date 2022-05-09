@@ -1,4 +1,6 @@
 import express, { Request } from "express"
+import { BackendError } from "../custom"
+import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
 import Blog from "../models/blog"
 
@@ -16,9 +18,9 @@ router.get("/", async (req: TypedRequestBody<{ pageNum: number }>, res) => {
 
   try {
     const blogs = await Blog.mostRecent(8, pageNum)
-    res.json({ success: { blogs: blogs } })
+    sendSuccessResponse(res, { blogs: blogs })
   } catch (err) {
-    res.status(500).json({ error: { generic: err } })
+    sendErrorResponse(res, err as BackendError)
   }
 })
 
@@ -26,9 +28,9 @@ router.get("/", async (req: TypedRequestBody<{ pageNum: number }>, res) => {
 router.get("/:blogId", async (req, res) => {
   try {
     const blog = await Blog.where(req.params.blogId)
-    res.json({ success: { blog: blog } })
+    sendSuccessResponse(res, { blog: blog })
   } catch (err) {
-    res.status(500).json({ error: { generic: err } })
+    sendErrorResponse(res, err as BackendError)
   }
 })
 
@@ -45,12 +47,14 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
   const css = req.body.css
   let blogId = req.body.blogId
 
-  if (!userId || !html) return res.status(400).json({ error: { generic: "Missing details!" } })
+  if (!userId || !html) {
+    return sendErrorResponse(res, { simple: { code: 400, message: "Missing details!" } })
+  }
 
   try {
     blogId = await Blog.save(userId, html, css, blogId)
-    res.status(201).json({ success: { id: blogId } })
+    sendSuccessResponse(res, { id: blogId })
   } catch (err) {
-    res.status(500).json({ error: { generic: err } })
+    sendErrorResponse(res, err as BackendError)
   }
 })
