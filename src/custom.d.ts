@@ -20,7 +20,7 @@ export type BackendError =
 
 // Response types
 export type BackendResponse =
-  { code?: number, success: any } |
-  { simpleError: { message: string } } |
-  { complexError: { object: Record<string, string> } } |
+  { success: any, code?: number } |
+  { simpleError: string } |
+  { complexError: Record<string, string> } |
   { unknownError: unknown }

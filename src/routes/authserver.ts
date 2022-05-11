@@ -30,19 +30,22 @@ router.post("/users", async (req, res) => {
     sendSuccessResponse(res, { id: user.id }, 201)
   } catch (err) {
     const castError = err as BackendError
+
     if ("unknown" in castError) {
+      // Custom handling of postgres errors
       if (ensureValidPostgresErr(castError.unknown)) {
         // Check if email already exists on the database
         if (castError.unknown.code === "23505") {
           // Email already exists. Send specific error
           return res.status(400).json({
-            complexError: { object: { email: "Email already exists!" } }
+            complexError: { email: "Email already exists!" }
           } as BackendResponse)
         }
       }
+    } else {
+      // Other errors
+      sendErrorResponse(res, castError)
     }
-
-    sendErrorResponse(res, castError)
   }
 })
 
@@ -53,21 +56,36 @@ router.post("/users/login", async (req, res) => {
   try {
     // Get the user
     const users = await User.where(req.body.username)
-    if (users.length == 0) return res.status(400).json({ error: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr } })
-
     const user = users[0]
 
     // Check if password hashes match
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
       const authUser: AuthUser = { id: user.id }
-      res.json({ success: Token.generateTokenPair(authUser) })
+      res.json({ success: Token.generateTokenPair(authUser) } as BackendResponse)
     } else {
       // Incorrect credentials
-      res.status(400).send({ error: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr } })
+      sendErrorResponse(res, {
+        complex: {
+          code: 400,
+          object: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr }
+        }
+      } as BackendError)
     }
   } catch (err) {
-    res.status(500).json({ error: { generic: err } })
+    const castError = err as BackendError
+    if ("unknown" in castError) {
+      sendErrorResponse(res, castError)
+    } else {
+      if ("simple" in castError) {
+        sendErrorResponse(res, {
+          complex: {
+            code: castError.simple.code,
+            object: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr }
+          }
+        } as BackendError)
+      }
+    }
   }
 })
 
@@ -84,21 +102,28 @@ router.post("/token", async (req, res) => {
       // Remove old refresh token
       Token.deleteRefreshToken(refreshToken)
       // Generate new refresh & access pair and send
-      res.json({ success: Token.generateTokenPair(data.user) })
+      res.json({ success: Token.generateTokenPair(data.user) } as BackendResponse)
     } else {
       // Refresh token is invalid
-      res.status(403).send({ error: { generic: "Invalid refresh token" } })
+      sendErrorResponse(res, { simple: { code: 403, message: "Invalid refresh token" } } as BackendError)
     }
   } catch (err) {
     // System failed to complete required operations
-    res.status(500).json({ error: { generic: err } })
+    sendErrorResponse(res, err as BackendError)
   }
 })
 
 // Logout user
-router.delete("/users/logout", (req, res) => {
+router.delete("/users/logout", async (req, res) => {
   const refreshToken: string = req.body.token
   if (!refreshToken) return res.sendStatus(401)
-  Token.deleteRefreshToken(refreshToken)
-  res.sendStatus(204)
+
+  try {
+    await Token.deleteRefreshToken(refreshToken)
+    // Successfully deleted given refresh token
+    res.sendStatus(204)
+  } catch (err) {
+    // Failed to delete given refresh token
+    sendErrorResponse(res, { unknown: err } as BackendError)
+  }
 })

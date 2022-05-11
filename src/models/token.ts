@@ -97,14 +97,19 @@ export default class Token {
     }
   }
 
-  static deleteRefreshToken(refreshToken: string) {
+  static async deleteRefreshToken(refreshToken: string) {
     const queryStr = `
       DELETE FROM refresh_tokens
       WHERE token = $1;
     `
     const queryVals = [refreshToken]
-    database.query(queryStr, queryVals, (err, data) => {
-      if (err) throw err
+    const promise = new Promise<void>((resolve, reject) => {
+      database.query(queryStr, queryVals, (err, data) => {
+        if (err) return reject(err)
+        return resolve()
+      })
     })
+
+    return promise
   }
 }
