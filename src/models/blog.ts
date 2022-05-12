@@ -53,10 +53,10 @@ export default class Blog {
 
     const promise = new Promise<Blog>((resolve, reject) => {
       database.query<BlogProps>(queryStr, queryVals, (err, data) => {
-        if (err) return reject({ unknown: err } as BackendError)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Could not find given blog id
-          return reject({ simple: { code: 400, message: "Given blog id does not exist!" } } as BackendError)
+          return reject({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
         }
 
         const blog = data.rows[0]
@@ -89,8 +89,8 @@ export default class Blog {
 
     const promise = new Promise<Blog[]>((resolve, reject) => {
       database.query<BlogProps>(queryStr, queryVals, (err, data) => {
-        if (err) return reject({ unknown: err } as BackendError)
-        if (data.rowCount <= 0) return reject({ simple: { code: 400, message: "No blogs to show" } } as BackendError)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        if (data.rowCount <= 0) return reject({ simpleError: "No blogs to show", code: 400 } as BackendError)
 
         const blogs = data.rows.map((blog) => {
           return new Blog(
@@ -161,9 +161,9 @@ export default class Blog {
 
     const promise = new Promise<string>((resolve, reject) => {
       database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject({ unknown: err } as BackendError)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
-          return reject({ simple: { code: 500, message: "Error: Could not save blog into database" } } as BackendError)
+          return reject({ simpleError: "Error: Could not save blog into database", code: 500 } as BackendError)
         }
 
         return resolve(data.rows[0].id)

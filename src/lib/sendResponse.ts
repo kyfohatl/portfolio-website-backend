@@ -2,12 +2,12 @@ import { Response } from "express";
 import { BackendResponse, BackendError } from "../custom";
 
 export function sendErrorResponse(res: Response, err: BackendError) {
-  if ("simple" in err) {
-    res.status(err.simple.code).json({ simpleError: err.simple.message } as BackendResponse)
-  } else if ("complex" in err) {
-    res.status(err.complex.code).json({ complexError: err.complex.object } as BackendResponse)
+  if ("simpleError" in err) {
+    res.status(err.code).json(err as BackendResponse)
+  } else if ("complexError" in err) {
+    res.status(err.code).json(err as BackendResponse)
   } else {
-    res.status(500).json({ unknownError: err.unknown } as BackendResponse)
+    res.status(500).json(err as BackendResponse)
   }
 }
 

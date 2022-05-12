@@ -22,8 +22,8 @@ export default class User {
 
     const promise = new Promise<User[]>((resolve, reject) => {
       database.query<{ id: string, username: string, password: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject({ unknown: err } as BackendError)
-        if (data.rowCount <= 0) return reject({ simple: { code: 400, message: "No users found" } } as BackendError)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        if (data.rowCount <= 0) return reject({ simpleError: "No users found", code: 400 } as BackendError)
 
         // Create a new User class instance for each row that is returned
         resolve(data.rows.map((row) => new User(row.id, row.username, row.password)))
@@ -44,9 +44,9 @@ export default class User {
 
     const promise = new Promise<User>((resolve, reject) => {
       database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject({ unknown: err } as BackendError)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (!data || data.rows.length !== 1) return reject({
-          simple: { code: 500, message: "User creation failed" }
+          simpleError: "User creation failed"
         } as BackendError)
 
         resolve(new User(data.rows[0].id, username, password))

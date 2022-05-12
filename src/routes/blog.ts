@@ -48,7 +48,7 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
   let blogId = req.body.blogId
 
   if (!userId || !html) {
-    return sendErrorResponse(res, { simple: { code: 400, message: "Missing details!" } })
+    return sendErrorResponse(res, { simpleError: "Missing details!", code: 400 })
   }
 
   try {

@@ -14,13 +14,10 @@ declare global {
 
 // Error types
 export type BackendError =
-  { simple: { code: number, message: string } } |
-  { complex: { code: number, object: Record<string, string> } } |
-  { unknown: unknown }
+  { simpleError: string, code: number } |
+  { complexError: Record<string, string>, code: number } |
+  { unknownError: unknown, code: number }
 
-// Response types
 export type BackendResponse =
   { success: any, code?: number } |
-  { simpleError: string } |
-  { complexError: Record<string, string> } |
-  { unknownError: unknown }
+  BackendError
