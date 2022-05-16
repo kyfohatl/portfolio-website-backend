@@ -1,4 +1,5 @@
 import express, { Request } from "express"
+import { Query } from 'express-serve-static-core';
 import { BackendError } from "../custom"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
@@ -11,13 +12,20 @@ interface TypedRequestBody<T> extends Request {
   body: T
 }
 
+interface TypedRequestQuery<T extends Query> extends Request {
+  query: T
+}
+
 // Respond with a list of the most recently created blogs, in order, on the given page number
-router.get("/", async (req: TypedRequestBody<{ pageNum: number }>, res) => {
-  const pageNum = req.body.pageNum
+router.get("/", async (req: TypedRequestQuery<{ page: string, limit: string }>, res) => {
+  const pageNum = parseInt(req.query.page)
   if (pageNum === undefined || pageNum === null) return res.sendStatus(400)
 
+  let limit = parseInt(req.query.limit)
+  if (!limit) limit = 8
+
   try {
-    const blogs = await Blog.mostRecent(8, pageNum)
+    const blogs = await Blog.mostRecent(limit, pageNum)
     sendSuccessResponse(res, { blogs: blogs })
   } catch (err) {
     sendErrorResponse(res, err as BackendError)
