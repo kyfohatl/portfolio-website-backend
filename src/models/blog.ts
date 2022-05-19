@@ -9,7 +9,8 @@ interface BlogProps {
   created: string,
   summary_title: string,
   summary_description: string,
-  summary_img: string
+  summary_img: string,
+  tags: string[]
 }
 
 export default class Blog {
@@ -21,6 +22,7 @@ export default class Blog {
   summaryTitle: string
   summaryDescription: string
   summaryImg: string
+  tags: string[]
 
   constructor(
     id: string,
@@ -30,7 +32,8 @@ export default class Blog {
     creationDate: string,
     summaryTitle: string,
     summaryDescription: string,
-    summaryImg: string
+    summaryImg: string,
+    tags: string[]
   ) {
     this.id = id
     this.userId = userId
@@ -40,14 +43,18 @@ export default class Blog {
     this.summaryTitle = summaryTitle
     this.summaryDescription = summaryDescription
     this.summaryImg = summaryImg
+    this.tags = tags
   }
 
   // Returns the blog with the given blogId if it exists
   static where(blogId: string) {
     const queryStr = `
-      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img
+      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag)
       FROM blogs
       WHERE id=$1
+      LEFT JOIN blog_tags
+        ON blogs.id = blog_tags.blog_id
+      GROUP BY id
     `
     const queryVals = [blogId]
 
@@ -68,7 +75,8 @@ export default class Blog {
           blog.created,
           blog.summary_title,
           blog.summary_description,
-          blog.summary_img
+          blog.summary_img,
+          blog.tags
         ))
       })
     })
@@ -80,8 +88,11 @@ export default class Blog {
   // given offset
   static mostRecent(limit: number, offset: number) {
     const queryStr = `
-      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img
+      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
       FROM blogs
+      LEFT JOIN blog_tags
+        ON blogs.id = blog_tags.blog_id
+      GROUP BY id
       ORDER BY created
       LIMIT $1 OFFSET $2;
     `
@@ -101,7 +112,8 @@ export default class Blog {
             blog.created,
             blog.summary_title,
             blog.summary_description,
-            blog.summary_img
+            blog.summary_img,
+            blog.tags
           )
         })
 
