@@ -3,13 +3,13 @@ import database from "../herokuClient"
 
 interface BlogProps {
   id: string,
-  userId: string,
+  user_id: string,
   html: string,
   css: string,
-  creationDate: string,
-  summaryTitle: string,
-  summaryDescription: string,
-  summaryImg: string
+  created: string,
+  summary_title: string,
+  summary_description: string,
+  summary_img: string
 }
 
 export default class Blog {
@@ -62,13 +62,13 @@ export default class Blog {
         const blog = data.rows[0]
         return resolve(new Blog(
           blog.id,
-          blog.userId,
+          blog.user_id,
           blog.html,
           blog.css,
-          blog.creationDate,
-          blog.summaryTitle,
-          blog.summaryDescription,
-          blog.summaryImg
+          blog.created,
+          blog.summary_title,
+          blog.summary_description,
+          blog.summary_img
         ))
       })
     })
@@ -95,13 +95,13 @@ export default class Blog {
         const blogs = data.rows.map((blog) => {
           return new Blog(
             blog.id,
-            blog.userId,
+            blog.user_id,
             blog.html,
             blog.css,
-            blog.creationDate,
-            blog.summaryTitle,
-            blog.summaryDescription,
-            blog.summaryImg
+            blog.created,
+            blog.summary_title,
+            blog.summary_description,
+            blog.summary_img
           )
         })
 
@@ -112,7 +112,7 @@ export default class Blog {
     return promise
   }
 
-  // Extracts and returns the open graph summary of the given html file
+  // Extracts and returns the open graph summary of the given html file, as well as it's associated tags
   static extractSummary(html: string) {
     let title = ""
     const titleMatch = html.match(/<meta\s+.*?property="og:title"\s+.*?content=(["'])((?:\\.|[^\\])*?)\1/)
@@ -126,37 +126,61 @@ export default class Blog {
     const imageMatch = html.match(/<meta\s+.*?property="og:image"\s+.*?content=(["'])((?:\\.|[^\\])*?)\1/)
     if (imageMatch) image = imageMatch[2]
 
-    return { title: title, description: description, image: image }
+    const tags: string[] = []
+
+    // Isolate the comma separated list of tags if it exists
+    const csTagsMatch = html.match(/<meta\s+.*?name="keywords"\s+.*?content=(["'])((?:\\.|[^\\])*?)\1\s*.*?\/>/)
+
+    if (csTagsMatch) {
+      const csTags = csTagsMatch[2]
+
+      // Match every item in the comma separated list of tags and place in the tags array
+      const tagMatches = csTags.matchAll(/\s*([^,]+)/g)
+      for (const tagMatch of tagMatches) {
+        tags.push(tagMatch[1])
+      }
+    }
+
+    return { title: title, description: description, image: image, tags: tags }
   }
 
-  // Stores a new blog with the given information in the database
-  static save(userId: string, html: string, css: string, blogId?: string | null) {
-    const summary = Blog.extractSummary(html)
+  // Saves the given blog (without tags) into the database
+  static async saveBlogWithoutTags(
+    userId: string,
+    html: string,
+    css: string,
+    summaryTitle: string,
+    summaryDescription: string,
+    summaryImg: string,
+    blogId?: string | null
+  ) {
     const curDate = new Date()
 
     let queryStr: string
     let queryVals: (string | Date)[]
     if (blogId) {
+      // We are updating an existing blog
       queryStr = `
-        UPDATE blogs
-        SET
-          html = $1,
-          css = $2,
-          last_edited = $3,
-          summary_title = $4,
-          summary_description = $5,
-          summary_img = $6
-        WHERE id = $7
-        RETURNING id;
-      `
-      queryVals = [html, css, curDate, summary.title, summary.description, summary.image, blogId]
+          UPDATE blogs
+          SET
+            html = $1,
+            css = $2,
+            last_edited = $3,
+            summary_title = $4,
+            summary_description = $5,
+            summary_img = $6
+          WHERE id = $7
+          RETURNING id;
+        `
+      queryVals = [html, css, curDate, summaryTitle, summaryDescription, summaryImg, blogId]
     } else {
+      // We are creating a new blog
       queryStr = `
-        INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)
-        VALUES($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id;
-      `
-      queryVals = [userId, html, css, curDate, summary.title, summary.description, summary.image]
+          INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)
+          VALUES($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id;
+        `
+      queryVals = [userId, html, css, curDate, summaryTitle, summaryDescription, summaryImg]
     }
 
     const promise = new Promise<string>((resolve, reject) => {
@@ -171,5 +195,88 @@ export default class Blog {
     })
 
     return promise
+  }
+
+  // Removes old tags of the given blog id (if they exist)
+  static async removeTags(blogId: string) {
+    const queryStr = `
+      DELETE FROM blog_tags
+      WHERE blog_id = $1;
+    `
+    const queryVals = [blogId]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      database.query(queryStr, queryVals, (err, data) => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+
+    return promise
+  }
+
+  // Inserts given tags into the database under the given blog id
+  static async saveTags(blogId: string, tags: string[]) {
+    if (tags.length <= 0) return
+
+    // Start with base query string
+    let queryStr = `
+      INSERT INTO blog_tags(blog_id, tag)
+      VALUES 
+    `
+    // Build dynamic query string
+    let i = 1
+    for (let j = 0; j < tags.length; j++) {
+      queryStr += `($${i++}, $${i++})`
+
+      if (j === tags.length - 1) queryStr += ";"
+      else queryStr += ", "
+    }
+
+    // Build dynamic query values
+    const queryVals: string[] = []
+    for (const tag of tags) {
+      queryVals.push(blogId)
+      queryVals.push(tag)
+    }
+
+    const promise = new Promise<void>((resolve, reject) => {
+      database.query(queryStr, queryVals, (err, data) => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+
+    return promise
+  }
+
+  // Saves the given blog with the given information into the database
+  // If a blog id is provided, th existing blog will be overridden, otherwise a new blog will be created
+  static async save(userId: string, html: string, css: string, blogId?: string | null) {
+    const summary = Blog.extractSummary(html)
+
+    try {
+      // Save the blog
+      const returningBlogId = await Blog.saveBlogWithoutTags(
+        userId,
+        html,
+        css,
+        summary.title,
+        summary.description,
+        summary.image,
+        blogId
+      )
+
+      if (blogId) {
+        // Existing blog. Delete old tags
+        await Blog.removeTags(blogId)
+      }
+
+      // Save blog tags, if any
+      await Blog.saveTags(returningBlogId, summary.tags)
+      return returningBlogId
+    } catch (err) {
+      throw err
+    }
   }
 }
