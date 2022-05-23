@@ -49,11 +49,11 @@ export default class Blog {
   // Returns the blog with the given blogId if it exists
   static where(blogId: string) {
     const queryStr = `
-      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag)
+      SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
       FROM blogs
-      WHERE id=$1
       LEFT JOIN blog_tags
         ON blogs.id = blog_tags.blog_id
+        AND blogs.id = $1
       GROUP BY id
     `
     const queryVals = [blogId]
