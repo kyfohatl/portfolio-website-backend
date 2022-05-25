@@ -101,7 +101,7 @@ export default class Blog {
     const promise = new Promise<Blog[]>((resolve, reject) => {
       database.query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-        if (data.rowCount <= 0) return reject({ simpleError: "No blogs to show", code: 400 } as BackendError)
+        if (data.rowCount <= 0) return reject({ simpleError: "No more blogs to show", code: 404 } as BackendError)
 
         const blogs = data.rows.map((blog) => {
           return new Blog(
