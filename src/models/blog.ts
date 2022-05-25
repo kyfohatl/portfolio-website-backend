@@ -262,12 +262,46 @@ export default class Blog {
     return promise
   }
 
+  // Throws an error if the given user id cannot edit the blog with the given blog id
+  static async canEdit(blogId: string, userId: string) {
+    const queryStr = `
+      SELECT user_id
+      FROM blogs
+      WHERE id = $1
+    `
+    const queryVals = [blogId]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      database.query<{ user_id: string }>(queryStr, queryVals, (err, data) => {
+        if (err) return reject(err)
+        if (data.rowCount <= 0) {
+          // Blog id not found
+          return (reject({ simpleError: "No blog with matching id found", code: 404 } as BackendError))
+        }
+
+        if (data.rows[0].user_id !== userId) {
+          return reject({ simpleError: "User cannot edit this blog", code: 403 } as BackendError)
+        }
+
+        return resolve()
+      })
+    })
+
+    return promise
+  }
+
   // Saves the given blog with the given information into the database
   // If a blog id is provided, th existing blog will be overridden, otherwise a new blog will be created
   static async save(userId: string, html: string, css: string, blogId?: string | null) {
-    const summary = Blog.extractSummary(html)
-
     try {
+      // If an existing blog is being edited, ensure that the given user can edit the given blog
+      if (blogId) {
+        await Blog.canEdit(blogId, userId)
+      }
+
+      // Get blog summary
+      const summary = Blog.extractSummary(html)
+
       // Save the blog
       const returningBlogId = await Blog.saveBlogWithoutTags(
         userId,
