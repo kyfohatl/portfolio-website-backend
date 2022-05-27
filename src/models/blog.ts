@@ -50,11 +50,15 @@ export default class Blog {
   static where(blogId: string) {
     const queryStr = `
       SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
-      FROM blogs
+      FROM
+        (
+          SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img
+          FROM blogs
+          WHERE id = $1
+        ) a1
       LEFT JOIN blog_tags
-        ON blogs.id = blog_tags.blog_id
-        AND blogs.id = $1
-      GROUP BY id
+        ON a1.id = blog_tags.blog_id
+      GROUP BY id, user_id, html, css, created, summary_title, summary_description, summary_img;
     `
     const queryVals = [blogId]
 
