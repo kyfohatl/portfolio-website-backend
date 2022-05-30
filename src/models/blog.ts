@@ -284,7 +284,7 @@ export default class Blog {
         }
 
         if (data.rows[0].user_id !== userId) {
-          return reject({ simpleError: "User cannot edit this blog", code: 403 } as BackendError)
+          return reject({ simpleError: "User cannot edit or delete this blog", code: 403 } as BackendError)
         }
 
         return resolve()
@@ -296,6 +296,7 @@ export default class Blog {
 
   // Saves the given blog with the given information into the database
   // If a blog id is provided, th existing blog will be overridden, otherwise a new blog will be created
+  // An existing blog can only be edited by the user that originally created the blog
   static async save(userId: string, html: string, css: string, blogId?: string | null) {
     try {
       // If an existing blog is being edited, ensure that the given user can edit the given blog
@@ -325,6 +326,21 @@ export default class Blog {
       // Save blog tags, if any
       await Blog.saveTags(returningBlogId, summary.tags)
       return returningBlogId
+    } catch (err) {
+      throw err
+    }
+  }
+
+  // Deletes the blog with the given id in the database, if the request comes from the same user that
+  // created the blog
+  static async delete(blogId: string, userId: string) {
+    try {
+      // Ensure the user can delete this blog
+      await Blog.canEdit(blogId, userId)
+
+      const queryStr = `
+        DELETE FROM blogs
+      `
     } catch (err) {
       throw err
     }

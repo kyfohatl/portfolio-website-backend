@@ -63,7 +63,7 @@ router.post("/users/login", async (req, res) => {
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
       const authUser: AuthUser = { id: user.id }
-      res.json({ success: Token.generateTokenPair(authUser) } as BackendResponse)
+      res.json({ success: { tokens: Token.generateTokenPair(authUser), userId: user.id } } as BackendResponse)
     } else {
       // Incorrect credentials
       sendErrorResponse(res, {
