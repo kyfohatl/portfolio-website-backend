@@ -1,6 +1,6 @@
 import express, { Request } from "express"
 import { Query } from 'express-serve-static-core';
-import { BackendError } from "../custom"
+import { BackendError, BackendResponse } from "../custom"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
 import Blog from "../models/blog"
@@ -48,7 +48,7 @@ interface CreateBlogProps {
   blogId?: string | null
 }
 
-// Create a new blog with the given information
+// Create a new blog or edit an existing blog with the given information
 router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlogProps>, res: AuthenticatedResponse) => {
   const userId = res.locals.authUser.id
   const html = req.body.html
@@ -62,6 +62,23 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
   try {
     blogId = await Blog.save(userId, html, css, blogId)
     sendSuccessResponse(res, { id: blogId })
+  } catch (err) {
+    sendErrorResponse(res, err as BackendError)
+  }
+})
+
+// Delete the blog with the given id
+router.delete("/:blogId", authenticateToken, async (req, res) => {
+  const userId = res.locals.authUser.id
+
+  // Ensure a blog id has been provided
+  if (!req.params.blogId) {
+    return sendErrorResponse(res, { simpleError: "Blog id required", code: 400 } as BackendError)
+  }
+
+  try {
+    const deletedBlogId = await Blog.delete(req.params.blogId, userId)
+    sendSuccessResponse(res, { id: deletedBlogId })
   } catch (err) {
     sendErrorResponse(res, err as BackendError)
   }

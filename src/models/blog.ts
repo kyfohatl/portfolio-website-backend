@@ -223,7 +223,7 @@ export default class Blog {
 
     const promise = new Promise<void>((resolve, reject) => {
       database.query(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         return resolve()
       })
     })
@@ -258,7 +258,7 @@ export default class Blog {
 
     const promise = new Promise<void>((resolve, reject) => {
       database.query(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         return resolve()
       })
     })
@@ -277,7 +277,7 @@ export default class Blog {
 
     const promise = new Promise<void>((resolve, reject) => {
       database.query<{ user_id: string }>(queryStr, queryVals, (err, data) => {
-        if (err) return reject(err)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Blog id not found
           return (reject({ simpleError: "No blog with matching id found", code: 404 } as BackendError))
@@ -340,7 +340,25 @@ export default class Blog {
 
       const queryStr = `
         DELETE FROM blogs
+        WHERE id = $1
+        RETURNING id
       `
+      const queryVals = [blogId]
+
+      const promise = new Promise<string>((resolve, reject) => {
+        database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
+          if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+          if (data.rowCount <= 0) {
+            // Blog with given id does not exist
+            return reject({ simpleError: "No blog with given id found", code: 404 } as BackendError)
+          }
+
+          // Blog successfully deleted
+          return resolve(data.rows[0].id)
+        })
+      })
+
+      return promise
     } catch (err) {
       throw err
     }
