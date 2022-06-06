@@ -1,16 +1,18 @@
 import dotenv from "dotenv"
 dotenv.config()
 
-import express from "express"
+import express, { Response } from "express"
+import cookieParser from "cookie-parser"
 import bcrypt from "bcrypt"
 
-import { AuthUser, BackendError, BackendResponse } from "../custom"
+import { AuthUser, BackendError, BackendResponse, TypedReqCookies } from "../custom"
 import User from "../models/user"
 import Token from "../models/token"
-import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
+import { sendErrorResponse } from "../lib/sendResponse"
 
 export const router = express.Router()
 router.use(express.json())
+router.use(cookieParser())
 
 interface PostgresErr {
   code: string
@@ -21,13 +23,31 @@ function ensureValidPostgresErr(err: unknown): err is PostgresErr {
   return (!!err && typeof err === "object" && "code" in err && typeof (err as PostgresErr).code === "string")
 }
 
+// Sends an access and refresh token pair via the response, both in the body (for mobile app frontends)
+// and as a cookie using the Set-Cookie header (for browser frontends)
+function sendTokens(res: Response, userId: string) {
+  const authUser: AuthUser = { id: userId }
+  const tokens = Token.generateTokenPair(authUser)
+
+  // We will send the tokens both in the body and set as a http-only cookie
+  // Tokens set as a cookie will be used by browser frontends
+  res.append("Set-Cookie", [
+    `accessToken=${tokens.accessToken}; Max-age=900; HttpOnly; Path=/`,
+    `refreshToken=${tokens.refreshToken}; HttpOnly; Path=/`
+  ])
+
+  // Tokens in the body can be used by mobile app frontends
+  res.json({ success: { tokens: tokens, userId: userId } } as BackendResponse)
+}
+
 // Create a new user with the given username and password
 router.post("/users", async (req, res) => {
 
   try {
     const passHash: string = await bcrypt.hash(req.body.password, 10)
     const user = await User.create(req.body.username, passHash)
-    sendSuccessResponse(res, { id: user.id }, 201)
+    // Send tokens to frontend
+    sendTokens(res, user.id)
   } catch (err) {
     const castError = err as BackendError
 
@@ -62,8 +82,8 @@ router.post("/users/login", async (req, res) => {
     // Check if password hashes match
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
-      const authUser: AuthUser = { id: user.id }
-      res.json({ success: { tokens: Token.generateTokenPair(authUser), userId: user.id } } as BackendResponse)
+      // Both as a cookie and in the body
+      sendTokens(res, user.id)
     } else {
       // Incorrect credentials
       sendErrorResponse(res, {
@@ -87,8 +107,9 @@ router.post("/users/login", async (req, res) => {
 })
 
 // Generates a new access & refresh token pair if the given refresh token is valid
-router.post("/token", async (req, res) => {
-  const refreshToken: string = req.body.token
+router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, res) => {
+  // Ensure a refresh token is present in cookies
+  const refreshToken = req.cookies.refreshToken
   if (!refreshToken) return res.sendStatus(401)
 
   try {
@@ -97,9 +118,9 @@ router.post("/token", async (req, res) => {
     if (data.isValid) {
       // Refresh token is valid
       // Remove old refresh token
-      Token.deleteRefreshToken(refreshToken)
+      await Token.deleteRefreshToken(refreshToken)
       // Generate new refresh & access pair and send
-      res.json({ success: Token.generateTokenPair(data.user) } as BackendResponse)
+      sendTokens(res, data.user.id)
     } else {
       // Refresh token is invalid
       sendErrorResponse(res, { simpleError: "Invalid refresh token", code: 403 } as BackendError)
@@ -118,6 +139,12 @@ router.delete("/users/logout", async (req, res) => {
   try {
     await Token.deleteRefreshToken(refreshToken)
     // Successfully deleted given refresh token
+    // Clear cookies from frontend if they exist
+    res.append("Set-Cookie", [
+      "accessToken=\"\"; Max-age=0; HttpOnly; Path=/",
+      "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/"
+    ])
+    // Send response
     res.sendStatus(204)
   } catch (err) {
     // Failed to delete given refresh token

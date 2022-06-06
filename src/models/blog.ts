@@ -360,7 +360,7 @@ export default class Blog {
 
       return promise
     } catch (err) {
-      throw err
+      throw { unknownError: err, code: 500 }
     }
   }
 }

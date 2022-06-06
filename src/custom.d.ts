@@ -1,4 +1,7 @@
 // The declarations below are used for typescript's Declaration Merging
+
+import { Request } from "express"
+
 // so that a Request object also can contain an AuthUser
 export interface AuthUser {
   id: string
@@ -21,3 +24,8 @@ export type BackendError =
 export type BackendResponse =
   { success: any, code?: number } |
   BackendError
+
+// Types requests
+export interface TypedReqCookies<T> extends Request {
+  cookies: T
+}
