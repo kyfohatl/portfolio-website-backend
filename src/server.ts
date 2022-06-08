@@ -4,17 +4,18 @@ dotenv.config()
 import express from "express"
 import cors from "cors"
 
-import { AuthUser } from "./custom"
 import { router as authRouter } from "./routes/authserver"
-import database from "./herokuClient"
 import { authenticateToken } from "./middleware/auth"
-import {router as blogRouter} from "./routes/blog"
+import { router as blogRouter } from "./routes/blog"
 
 // Start up express
 const app = express()
 app.use(express.json())
 // Setup cors
-app.use(cors())
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}))
 
 
 interface User {
