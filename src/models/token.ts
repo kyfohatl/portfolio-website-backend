@@ -17,6 +17,12 @@ interface VerifyTokenReturnSuccess {
 
 type VerifyTokenReturn = VerifyTokenReturnFailure | VerifyTokenReturnSuccess
 
+const ACC_TOKEN_EXPIRY_MINUTES = 15
+const ACC_TOKEN_EXPIRY_SECONDS = ACC_TOKEN_EXPIRY_MINUTES * 60
+
+const REF_TOKEN_EXPIRY_DAYS = 90
+const REF_TOKEN_EXPIRY_SECONDS = REF_TOKEN_EXPIRY_DAYS * 86400
+
 export default class Token {
   // Returns true along with the verified token data if the given access token is valid, and false otherwise
   static verifyAccToken(token: string): VerifyTokenReturn {
@@ -68,11 +74,20 @@ export default class Token {
   }
 
   static generateAccessToken(authUser: AuthUser) {
-    return jwt.sign(authUser, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: "15m" })
+    return {
+      token: jwt.sign(
+        authUser,
+        process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: ACC_TOKEN_EXPIRY_MINUTES + "m" }
+      ),
+      expiresInSeconds: ACC_TOKEN_EXPIRY_SECONDS
+    }
   }
 
   static generateRefreshToken(authUser: AuthUser) {
-    const refreshToken = jwt.sign(authUser, process.env.REFRESH_TOKEN_SECRET as string)
+    const refreshToken = jwt.sign(
+      authUser,
+      process.env.REFRESH_TOKEN_SECRET as string, { expiresIn: REF_TOKEN_EXPIRY_DAYS + "d" }
+    )
 
     // Add refresh token to the database
     const queryStr = `
@@ -84,7 +99,10 @@ export default class Token {
       if (err) throw err
     })
 
-    return refreshToken
+    return {
+      token: refreshToken,
+      expiresInSeconds: REF_TOKEN_EXPIRY_SECONDS
+    }
   }
 
   static generateTokenPair(authUser: AuthUser) {
