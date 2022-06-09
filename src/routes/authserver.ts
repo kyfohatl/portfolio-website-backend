@@ -113,9 +113,12 @@ router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, re
   const refreshToken = req.cookies.refreshToken
   if (!refreshToken) return res.sendStatus(401)
 
+  console.log(refreshToken)
+
   try {
     // Check for the validity of the given refresh token
     const data = await Token.verifyRefToken(refreshToken)
+    console.log(data)
     if (data.isValid) {
       // Refresh token is valid
       // Remove old refresh token
