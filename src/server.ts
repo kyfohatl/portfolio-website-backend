@@ -13,7 +13,7 @@ const app = express()
 app.use(express.json())
 // Setup cors
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: process.env.FRONTEND_SERVER_ADDR,
   credentials: true
 }))
 
@@ -34,7 +34,7 @@ app.get("/test", authenticateToken, (req, res) => {
   res.json("Hello you are authenticated")
 })
 
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 8000
 app.listen(port, () => {
   console.log("Listening on port " + port)
 })
