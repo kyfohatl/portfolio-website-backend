@@ -73,6 +73,7 @@ router.post("/users", async (req, res) => {
 const incorrectUserOrPassStr = "Username or password is incorrect"
 
 // Login the given user with the given username and password, if correct
+// Sends back jwt acc and refresh tokens both as cookies and in the response body
 router.post("/users/login", async (req, res) => {
   try {
     // Get the user
