@@ -32,8 +32,8 @@ function sendTokens(res: Response, userId: string) {
   // We will send the tokens both in the body and set as a http-only cookie
   // Tokens set as a cookie will be used by browser frontends
   res.append("Set-Cookie", [
-    `accessToken=${tokens.accessToken.token}; Max-age=${tokens.accessToken.expiresInSeconds}; HttpOnly; Path=/`,
-    `refreshToken=${tokens.refreshToken.token}; Max-age=${tokens.refreshToken.expiresInSeconds}; HttpOnly; Path=/`
+    `accessToken=${tokens.accessToken.token}; Max-age=${tokens.accessToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`,
+    `refreshToken=${tokens.refreshToken.token}; Max-age=${tokens.refreshToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`
   ])
 
   // Tokens in the body can be used by mobile app frontends
@@ -136,7 +136,7 @@ router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, re
 router.delete("/users/logout", async (req, res) => {
   let refreshToken: string | undefined = undefined
   // First try to get the token from cookies (for web browser frontend)
-  if ("refreshToken" in req.cookies) refreshToken = req.cookies.refreshToken
+  if (req.cookies && "refreshToken" in req.cookies) refreshToken = req.cookies.refreshToken
   else {
     // Otherwise try to get it from the body (for mobile app frontend)
     refreshToken = req.body.token
@@ -150,8 +150,8 @@ router.delete("/users/logout", async (req, res) => {
     // Successfully deleted given refresh token
     // Clear cookies from frontend if they exist
     res.append("Set-Cookie", [
-      "accessToken=\"\"; Max-age=0; HttpOnly; Path=/",
-      "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/"
+      "accessToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure",
+      "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
     ])
     // Send response
     res.sendStatus(204)
