@@ -11,7 +11,7 @@ export interface AuthenticatedResponse extends Response {
 export function authenticateToken(req: Request, res: AuthenticatedResponse, next: NextFunction) {
   let token: string | undefined = undefined
   // First try to get access token from cookies
-  if ("accessToken" in req.cookies) token = req.cookies.accessToken
+  if (req.cookies && "accessToken" in req.cookies) token = req.cookies.accessToken
   else {
     // Otherwise try to get it from the authorization header
     const authHeader = req.headers['authorization']
