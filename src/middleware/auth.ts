@@ -10,6 +10,7 @@ export interface AuthenticatedResponse extends Response {
 // authenticated information to the request object
 export function authenticateToken(req: Request, res: AuthenticatedResponse, next: NextFunction) {
   let token: string | undefined = undefined
+  console.log("cookies", req.cookies)
   // First try to get access token from cookies
   if (req.cookies && "accessToken" in req.cookies) token = req.cookies.accessToken
   else {
