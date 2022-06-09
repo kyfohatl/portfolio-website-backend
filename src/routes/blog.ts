@@ -1,3 +1,4 @@
+import cookieParser from "cookie-parser";
 import express, { Request } from "express"
 import { Query } from 'express-serve-static-core';
 import { BackendError, BackendResponse } from "../custom"
@@ -7,6 +8,7 @@ import Blog from "../models/blog"
 
 export const router = express.Router()
 router.use(express.json())
+router.use(cookieParser())
 
 interface TypedRequestBody<T> extends Request {
   body: T
