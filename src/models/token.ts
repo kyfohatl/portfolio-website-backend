@@ -53,7 +53,7 @@ export default class Token {
     try {
       const data = await database.query(queryStr, queryVals)
       console.log(data.rows[0])
-      if (data.rows[0].exist) {
+      if (data.rows[0].exists) {
         console.log("Reached this part")
         // Token exists in database. Verify it
         try {
