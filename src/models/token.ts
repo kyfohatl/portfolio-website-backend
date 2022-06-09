@@ -52,11 +52,11 @@ export default class Token {
 
     try {
       const data = await database.query(queryStr, queryVals)
-      console.log(data)
       if (data.rows[0].exist) {
         // Token exists in database. Verify it
         try {
           const jwtData = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string)
+          console.log("jwtData:", jwtData)
           if (jwtData == undefined) return { isValid: false }
           // Refresh token exists and has been verified. Return true
           return { isValid: true, user: jwtData as AuthUser }
