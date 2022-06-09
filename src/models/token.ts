@@ -17,7 +17,7 @@ interface VerifyTokenReturnSuccess {
 
 type VerifyTokenReturn = VerifyTokenReturnFailure | VerifyTokenReturnSuccess
 
-const ACC_TOKEN_EXPIRY_MINUTES = 1
+const ACC_TOKEN_EXPIRY_MINUTES = 15
 const ACC_TOKEN_EXPIRY_SECONDS = ACC_TOKEN_EXPIRY_MINUTES * 60
 
 const REF_TOKEN_EXPIRY_DAYS = 90
