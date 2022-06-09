@@ -18,9 +18,12 @@ export function authenticateToken(req: Request, res: AuthenticatedResponse, next
     token = authHeader && authHeader.split(" ")[1]
   }
 
+  console.log("acc token", token)
+
   if (!token) return res.status(401).json({ simpleError: "No token given", code: 401 } as BackendResponse)
 
   const data = Token.verifyAccToken(token)
+  console.log("verify acc", data)
   if (data.isValid) {
     res.locals.authUser = data.user
     next()
