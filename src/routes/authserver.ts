@@ -9,10 +9,16 @@ import { AuthUser, BackendError, BackendResponse, TypedReqCookies } from "../cus
 import User from "../models/user"
 import Token from "../models/token"
 import { sendErrorResponse } from "../lib/sendResponse"
+import { generators, Issuer } from "openid-client"
+import bodyParser from "body-parser"
+import { expressStorage } from "../lib/storage"
+import { initializeAuthClients } from "../middleware/auth"
 
 export const router = express.Router()
 router.use(express.json())
 router.use(cookieParser())
+router.use(bodyParser.urlencoded({ extended: false }))
+router.use(bodyParser.json())
 
 interface PostgresErr {
   code: string
@@ -159,4 +165,73 @@ router.delete("/users/logout", async (req, res) => {
     // Failed to delete given refresh token
     sendErrorResponse(res, { unknownError: err, code: 500 } as BackendError)
   }
+})
+
+const NONCE_MAX_AGE = 15 * 60 * 1000
+
+// Third party openid client authentication
+// Currently google and facebook auth are supported
+router.get("/login/:authService", initializeAuthClients, async (req, res) => {
+  if (!req.params.authService) return sendErrorResponse(res, { simpleError: "No auth service given!", code: 400 })
+
+  const nonce = generators.nonce()
+
+  let url: string
+  switch (req.params.authService) {
+    case "google":
+      url = expressStorage.googleAuthClient.authorizationUrl({
+        scope: "openid email profile",
+        response_mode: "form_post",
+        nonce
+      })
+      break
+    case "facebook":
+      url = expressStorage.facebookAuthClient.authorizationUrl({
+        scope: "openid email public_profile",
+        response_mode: "query",
+        nonce
+      })
+      break
+    default:
+      // Given auth service is not supported
+      return sendErrorResponse(res, { simpleError: "Invalid auth service!", code: 400 })
+  }
+
+  // Save the nonce as a cookie
+  res.cookie("nonce", nonce, { path: "/", maxAge: NONCE_MAX_AGE, httpOnly: true })
+
+  // Redirect the user to the authorization url, where they are prompted by google to sign in
+  res.redirect(url)
+})
+
+// Callback endpoint for google openid client auth
+router.post("/login/google/callback", async (req, res) => {
+  // Extract nonce from cookie
+  if (!("nonce" in req.cookies)) return res.sendStatus(500)
+
+  const params = expressStorage.googleAuthClient.callbackParams(req)
+  const tokenSet = await expressStorage.googleAuthClient.callback(
+    `${process.env.BACKEND_SERVER_ADDR}/auth/login/google/callback`,
+    params,
+    { nonce: req.cookies.nonce }
+  )
+
+  console.log(tokenSet.claims())
+  res.json({ tokenSet })
+})
+
+// Callback endpoint for facebook openid client auth
+router.post("/login/facebook/callback", async (req, res) => {
+  // Extract nonce from cookie
+  if (!("nonce" in req.cookies)) return res.sendStatus(500)
+
+  const params = expressStorage.facebookAuthClient.callbackParams(req)
+  const tokenSet = await expressStorage.facebookAuthClient.callback(
+    "http://localhost:8000/auth/login/google/callback",
+    params,
+    { nonce: req.cookies.nonce }
+  )
+
+  console.log(tokenSet.claims())
+  res.json({ tokenSet })
 })
