@@ -51,7 +51,7 @@ export default class User {
       queryVals = [username, password]
     } else {
       queryStr = `
-        INSERT INTO users(username,password)
+        INSERT INTO users(username)
         VALUES ($1)
         RETURNING id;
       `
