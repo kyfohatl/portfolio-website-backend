@@ -4,7 +4,7 @@ dotenv.config()
 import express from "express"
 import cors from "cors"
 
-import { router as authRouter } from "./routes/authserver"
+import { router as authRouter } from "./routes/auth"
 import { authenticateToken } from "./middleware/auth"
 import { router as blogRouter } from "./routes/blog"
 

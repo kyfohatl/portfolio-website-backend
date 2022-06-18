@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express"
 import { Issuer } from "openid-client"
-import { AuthUser, BackendResponse } from "../custom"
+import { AuthService, AuthUser, BackendResponse } from "../custom"
 import { expressStorage } from "../lib/storage"
 import Token from "../models/token"
 
@@ -31,7 +31,9 @@ export function authenticateToken(req: Request, res: AuthenticatedResponse, next
   }
 }
 
-type AuthService = "google" | "facebook"
+export const GOOGLE_CALLBACK_ADDR = `${process.env.BACKEND_SERVER_ADDR}/auth/login/google/callback`
+export const FACEBOOK_CALLBACK_ADDR = `${process.env.FRONTEND_SERVER_ADDR}/signin/facebook`
+
 async function initializeClient(type: AuthService) {
   let discoveryAddr: string
   let clientId: string
@@ -41,12 +43,12 @@ async function initializeClient(type: AuthService) {
     case "google":
       discoveryAddr = "https://accounts.google.com"
       clientId = "755324419331-u4ekk67a3s3hato95ng9vb45hc837vpl.apps.googleusercontent.com"
-      callBackAddr = `${process.env.BACKEND_SERVER_ADDR}/auth/login/google/callback`
+      callBackAddr = GOOGLE_CALLBACK_ADDR
       break
     case "facebook":
       discoveryAddr = "https://www.facebook.com/.well-known/openid-configuration/"
       clientId = "396361625604894"
-      callBackAddr = `${process.env.FRONTEND_SERVER_ADDR}/signin/facebook`
+      callBackAddr = FACEBOOK_CALLBACK_ADDR
       break
     default:
       throw new Error("Given auth client type has not been implemented")

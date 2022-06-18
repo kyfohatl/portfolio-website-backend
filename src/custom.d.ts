@@ -29,3 +29,6 @@ export type BackendResponse =
 export interface TypedReqCookies<T> extends Request {
   cookies: T
 }
+
+// Third party authentication services
+type AuthService = "google" | "facebook"

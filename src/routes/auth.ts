@@ -1,18 +1,18 @@
 import dotenv from "dotenv"
 dotenv.config()
 
-import express, { Response } from "express"
+import express, { Request, Response } from "express"
 import cookieParser from "cookie-parser"
 import bcrypt from "bcrypt"
 
-import { AuthUser, BackendError, BackendResponse, TypedReqCookies } from "../custom"
+import { AuthService, AuthUser, BackendError, BackendResponse, TypedReqCookies } from "../custom"
 import User from "../models/user"
 import Token from "../models/token"
-import { sendErrorResponse } from "../lib/sendResponse"
-import { generators, Issuer } from "openid-client"
+import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
+import { generators } from "openid-client"
 import bodyParser from "body-parser"
 import { expressStorage } from "../lib/storage"
-import { initializeAuthClients } from "../middleware/auth"
+import { FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeAuthClients } from "../middleware/auth"
 
 export const router = express.Router()
 router.use(express.json())
@@ -43,7 +43,7 @@ function sendTokens(res: Response, userId: string) {
   ])
 
   // Tokens in the body can be used by mobile app frontends
-  res.json({ success: { tokens: tokens, userId: userId } } as BackendResponse)
+  sendSuccessResponse(res, { tokens: tokens, userId: userId })
 }
 
 // Create a new user with the given username and password
@@ -83,8 +83,14 @@ const incorrectUserOrPassStr = "Username or password is incorrect"
 router.post("/users/login", async (req, res) => {
   try {
     // Get the user
-    const users = await User.where(req.body.username)
+    const users = await User.where("username", req.body.username)
     const user = users[0]
+
+    // Ensure that this user is not a third party auth user
+    if (!user.password) return sendErrorResponse(res, {
+      complexError: { email: "User already exists with third party account", password: "" },
+      code: 400
+    } as BackendError)
 
     // Check if password hashes match
     if (await bcrypt.compare(req.body.password, user.password)) {
@@ -108,6 +114,8 @@ router.post("/users/login", async (req, res) => {
           complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
           code: castError.code
         } as BackendError)
+      } else {
+        res.status(500).json(err)
       }
     }
   }
@@ -204,34 +212,67 @@ router.get("/login/:authService", initializeAuthClients, async (req, res) => {
   res.redirect(url)
 })
 
-// Callback endpoint for google openid client auth
-router.post("/login/google/callback", async (req, res) => {
-  // Extract nonce from cookie
-  if (!("nonce" in req.cookies)) return res.sendStatus(500)
+// Handles the callback process for the given openid client authentication service type
+// Throws an error if unable to complete the process
+async function handleOpenIdCallback(req: Request, res: Response, clientType: AuthService) {
+  const clientObjName = clientType + "AuthClient"
 
-  const params = expressStorage.googleAuthClient.callbackParams(req)
-  const tokenSet = await expressStorage.googleAuthClient.callback(
-    `${process.env.BACKEND_SERVER_ADDR}/auth/login/google/callback`,
+  // Ensure required information is present
+  if (!("nonce" in req.cookies) || !(clientObjName in expressStorage)) {
+    throw ({ simpleError: "Missing nonce or client has not been initialized", code: 500 } as BackendError)
+  }
+
+  // Set correct information depending on client type
+  let callbackAddr: string
+  switch (clientType) {
+    case "google":
+      callbackAddr = GOOGLE_CALLBACK_ADDR
+      break
+    case "facebook":
+      callbackAddr = FACEBOOK_CALLBACK_ADDR
+      break
+    default:
+      throw ({ simpleError: `Given client type of ${clientType} is not supported`, code: 400 } as BackendError)
+  }
+
+  const params = expressStorage[clientObjName].callbackParams(req)
+  const tokenSet = await expressStorage[clientObjName].callback(
+    callbackAddr,
     params,
     { nonce: req.cookies.nonce }
   )
+  const claims = tokenSet.claims()
 
-  console.log(tokenSet.claims())
-  res.json({ tokenSet })
+  // Ensure an email is present in the given user info
+  if (!claims.email) throw ({ simpleError: "Third party did not provide email!", code: 400 } as BackendError)
+
+  try {
+    // If a user with the given information does not exist on the system, create a new user
+    // Otherwise get the id of the existing user
+    const user = await User.getThirdPartyUserOrCreate(clientType, claims.sub, claims.email)
+    // Openid authentication successful. Send tokens
+    sendTokens(res, user.id)
+  } catch (err) {
+    throw err
+  }
+}
+
+// Callback endpoint for google openid client auth
+router.post("/login/google/callback", async (req, res) => {
+  try {
+    await handleOpenIdCallback(req, res, "google")
+  } catch (err) {
+    // Failed to complete openid authentication
+    sendErrorResponse(res, err as BackendError)
+  }
 })
 
 // Callback endpoint for facebook openid client auth
 router.post("/login/facebook/callback", async (req, res) => {
-  // Extract nonce from cookie
-  if (!("nonce" in req.cookies)) return res.sendStatus(500)
-
-  const params = expressStorage.facebookAuthClient.callbackParams(req)
-  const tokenSet = await expressStorage.facebookAuthClient.callback(
-    "http://localhost:8000/auth/login/google/callback",
-    params,
-    { nonce: req.cookies.nonce }
-  )
-
-  console.log(tokenSet.claims())
-  res.json({ tokenSet })
+  try {
+    await handleOpenIdCallback(req, res, "facebook")
+  } catch (err) {
+    // Failed to complete openid authentication
+    sendErrorResponse(res, err as BackendError)
+  }
 })

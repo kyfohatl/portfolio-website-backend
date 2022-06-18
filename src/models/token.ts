@@ -4,7 +4,7 @@ dotenv.config()
 import jwt from "jsonwebtoken"
 import database from "../herokuClient"
 
-import { AuthUser } from "../custom"
+import { AuthUser, BackendError } from "../custom"
 
 interface VerifyTokenReturnFailure {
   isValid: false
@@ -96,7 +96,7 @@ export default class Token {
     `
     const queryVals = [refreshToken]
     database.query(queryStr, queryVals, (err, data) => {
-      if (err) throw err
+      if (err) throw ({ unknownError: err, code: 500 } as BackendError)
     })
 
     return {
