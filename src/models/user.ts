@@ -72,6 +72,24 @@ export default class User {
     return promise
   }
 
+  // Adds given third party user to the third party auth providers table
+  static createThirdPartyAuthEntry(provider: AuthService, providerId: string, userId: string) {
+    const queryStr = `
+      INSERT INTO auth_providers(user_id, provider, provider_user_id)
+      VALUES ($1, $2, $3);
+    `
+    const queryVals = [userId, provider, providerId]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      database.query(queryStr, queryVals, (err, data) => {
+        if (err) return reject({unknownError: err, code: 500} as BackendError)
+        resolve()
+      })
+    })
+
+    return promise
+  }
+
   // Returned third party authenticated user account if it exists, or creates and return a new account
   // if it does not
   static async getThirdPartyUserOrCreate(provider: AuthService, providerUserId: string, email: string) {
@@ -93,7 +111,11 @@ export default class User {
     try {
       if (data.rowCount <= 0) {
         // User not found, create a new user
-        return await User.create(email)
+        const user = await User.create(email)
+        // Add third party user to the third party table
+        await User.createThirdPartyAuthEntry(provider, providerUserId, user.id)
+
+        return user
       }
 
       // User exists already. Return user
