@@ -31,7 +31,7 @@ function ensureValidPostgresErr(err: unknown): err is PostgresErr {
 
 // Sends an access and refresh token pair via the response, both in the body (for mobile app frontends)
 // and as a cookie using the Set-Cookie header (for browser frontends)
-function sendTokens(res: Response, userId: string) {
+function sendTokens(res: Response, userId: string, redirectAddr?: string) {
   const authUser: AuthUser = { id: userId }
   const tokens = Token.generateTokenPair(authUser)
 
@@ -42,8 +42,15 @@ function sendTokens(res: Response, userId: string) {
     `refreshToken=${tokens.refreshToken.token}; Max-age=${tokens.refreshToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`
   ])
 
-  // Tokens in the body can be used by mobile app frontends
-  sendSuccessResponse(res, { tokens: tokens, userId: userId })
+  if (redirectAddr) {
+    // A redirect url is given. Redirect to the given location and set user id as a parameter
+    // Also only send user id as this method of authentication will only be used for a browser frontend
+    res.redirect(redirectAddr + `?userid=${userId}`)
+  } else {
+    // Redirect url is not given, send information in the response body
+    // Tokens in the body can be used by mobile app frontends
+    sendSuccessResponse(res, { tokens: tokens, userId: userId })
+  }
 }
 
 // Create a new user with the given username and password
@@ -251,7 +258,8 @@ async function handleOpenIdCallback(req: Request, res: Response, clientType: Aut
     // Otherwise get the id of the existing user
     const user = await User.getThirdPartyUserOrCreate(clientType, claims.sub, claims.email)
     // Openid authentication successful. Send tokens
-    sendTokens(res, user.id)
+    if (clientType === "facebook") sendTokens(res, user.id)
+    else sendTokens(res, user.id, `${process.env.FRONTEND_SERVER_ADDR}/signin/google`)
   } catch (err) {
     throw err
   }
