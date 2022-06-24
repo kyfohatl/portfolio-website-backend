@@ -225,9 +225,10 @@ async function handleOpenIdCallback(req: Request, res: Response, clientType: Aut
   const clientObjName = clientType + "AuthClient"
 
   // Ensure required information is present
-  if (!("nonce" in req.cookies) || !(clientObjName in expressStorage)) {
-    throw ({ simpleError: "Missing nonce or client has not been initialized", code: 500 } as BackendError)
-  }
+  if (!("nonce" in req.cookies))
+    throw ({ simpleError: "Missing nonce!", code: 500 } as BackendError)
+  else if (!(clientObjName in expressStorage))
+    throw ({ simpleError: "Client has not been initialized", code: 500 } as BackendError)
 
   // Set correct information depending on client type
   let callbackAddr: string
