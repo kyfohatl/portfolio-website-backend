@@ -213,7 +213,11 @@ router.get("/login/:authService", initializeAuthClients, async (req, res) => {
   }
 
   // Save the nonce as a cookie
-  res.cookie("nonce", nonce, { path: "/", maxAge: NONCE_MAX_AGE, httpOnly: true })
+  res.cookie(
+    "nonce",
+    nonce,
+    { path: "/", maxAge: NONCE_MAX_AGE, httpOnly: true, sameSite: "none", secure: true }
+  )
 
   // Redirect the user to the authorization url, where they are prompted by google to sign in
   res.redirect(url)
