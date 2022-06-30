@@ -15,7 +15,7 @@ interface VerifyTokenReturnSuccess {
   user: AuthUser
 }
 
-type VerifyTokenReturn = VerifyTokenReturnFailure | VerifyTokenReturnSuccess
+export type VerifyTokenReturn = VerifyTokenReturnFailure | VerifyTokenReturnSuccess
 
 const ACC_TOKEN_EXPIRY_MINUTES = 15
 const ACC_TOKEN_EXPIRY_SECONDS = ACC_TOKEN_EXPIRY_MINUTES * 60
