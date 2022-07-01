@@ -3,11 +3,9 @@ import express, { Request } from "express"
 import { Query } from 'express-serve-static-core';
 import { BackendError, BackendResponse } from "../custom"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
-import { AuthenticatedResponse, makeAuthenticateToken } from "../middleware/auth"
+import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
 import Blog from "../models/blog"
 import Token from "../models/token";
-
-const authenticateToken = makeAuthenticateToken(Token.verifyAccToken)
 
 export const router = express.Router()
 router.use(express.json())
