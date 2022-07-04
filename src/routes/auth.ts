@@ -16,9 +16,7 @@ import { FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeAuthClients } f
 
 export const router = express.Router()
 router.use(express.json())
-router.use(cookieParser())
 router.use(bodyParser.urlencoded({ extended: false }))
-router.use(bodyParser.json())
 
 interface PostgresErr {
   code: string

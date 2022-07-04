@@ -35,7 +35,7 @@ export function authenticateToken(req: Request, res: AuthenticatedResponse, next
 export const GOOGLE_CALLBACK_ADDR = `${process.env.BACKEND_SERVER_ADDR}/auth/login/google/callback`
 export const FACEBOOK_CALLBACK_ADDR = `${process.env.FRONTEND_SERVER_ADDR}/signin/facebook`
 
-async function initializeClient(type: AuthService) {
+export async function initializeClient(type: AuthService) {
   let discoveryAddr: string
   let clientId: string
   let callBackAddr: string

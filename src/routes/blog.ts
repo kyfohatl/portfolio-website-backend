@@ -8,8 +8,6 @@ import Blog from "../models/blog"
 import Token from "../models/token";
 
 export const router = express.Router()
-router.use(express.json())
-router.use(cookieParser())
 
 interface TypedRequestBody<T> extends Request {
   body: T
