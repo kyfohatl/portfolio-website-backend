@@ -1,7 +1,9 @@
 import { Request, request, response } from "express"
 import Token from "../../models/token"
-import { AuthenticatedResponse, authenticateToken, FACEBOOK_CALLBACK_ADDR, initializeClient } from "../../middleware/auth"
+import { AuthenticatedResponse, authenticateToken, FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeClient } from "../../middleware/auth"
 import { BaseClient, Issuer, TypeOfGenericClient } from "openid-client"
+import { AuthService } from "../../custom"
+import { expressStorage } from "../../lib/storage"
 
 // Mock the token class
 jest.mock("../../models/token")
@@ -105,30 +107,62 @@ const MockedIssuer = jest.mocked(Issuer, true)
 
 // Testing the initializeClient helper function
 describe("initializeClient", () => {
-  describe("When given facebook as auth client type", () => {
-    // Setup return value for the mocked issuer discovery method
+  // Setup return value for the mocked issuer discovery method
+  let issuer: jest.MockedObjectDeep<Issuer<BaseClient>>
+  beforeAll(() => {
     MockedIssuer.discover.mockReset()
-    const issuerInstance = jest.mocked<Issuer<BaseClient>>(Object.create(Issuer), true)
-    MockedIssuer.discover.mockResolvedValue(issuerInstance)
+    issuer = jest.mocked(new Issuer({ issuer: "1" }), true)
+    issuer.Client = (jest.fn(() => { return { sample: "1234" } }) as unknown) as TypeOfGenericClient<BaseClient>
+    MockedIssuer.discover.mockResolvedValue(issuer)
+  })
 
-    // Call the method with facebook client type
-    initializeClient("facebook")
-
-    // Run tests
+  // Ensures the correct functions are called with the correct parameters
+  function itBehavesLikeValidClient(
+    clientType: AuthService,
+    discoveryAddr: string,
+    clientId: string,
+    callbackAddr: string,
+  ) {
     it("Calls the issuer discover function with the correct address", () => {
-      expect(MockedIssuer.discover).toHaveBeenCalledWith("https://www.facebook.com/.well-known/openid-configuration/")
+      expect(MockedIssuer.discover).toHaveBeenCalledWith(discoveryAddr)
     })
 
     it("Creates a new client with the correct facebook details", () => {
-      expect(issuerInstance.Client).toHaveBeenCalledWith({
-        client_id: "396361625604894",
-        redirect_uris: [FACEBOOK_CALLBACK_ADDR],
+      expect(issuer.Client).toHaveBeenCalledWith({
+        client_id: clientId,
+        redirect_uris: [callbackAddr],
         response_types: ["id_token"]
       })
     })
+
+    it("Saves the client in the expressStorage global object", () => {
+      expect((clientType + "AuthClient") in expressStorage).toBe(true)
+    })
+  }
+
+  describe("When given facebook as auth client type", () => {
+    beforeAll(() => {
+      initializeClient("facebook")
+    })
+
+    itBehavesLikeValidClient(
+      "facebook",
+      "https://www.facebook.com/.well-known/openid-configuration/",
+      "396361625604894",
+      FACEBOOK_CALLBACK_ADDR
+    )
   })
 
   describe("When given google as auth client type", () => {
-    it("Generates google client in expressStorage with correct details", () => { })
+    beforeAll(() => {
+      initializeClient("google")
+    })
+
+    itBehavesLikeValidClient(
+      "google",
+      "https://accounts.google.com",
+      "755324419331-u4ekk67a3s3hato95ng9vb45hc837vpl.apps.googleusercontent.com",
+      GOOGLE_CALLBACK_ADDR
+    )
   })
 })

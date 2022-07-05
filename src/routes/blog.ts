@@ -1,11 +1,9 @@
-import cookieParser from "cookie-parser";
 import express, { Request } from "express"
-import { Query } from 'express-serve-static-core';
-import { BackendError, BackendResponse } from "../custom"
+import { Query } from 'express-serve-static-core'
+import { BackendError } from "../custom"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
 import Blog from "../models/blog"
-import Token from "../models/token";
 
 export const router = express.Router()
 

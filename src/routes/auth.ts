@@ -2,7 +2,6 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import express, { Request, Response } from "express"
-import cookieParser from "cookie-parser"
 import bcrypt from "bcrypt"
 
 import { AuthService, AuthUser, BackendError, BackendResponse, TypedReqCookies } from "../custom"
