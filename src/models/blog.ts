@@ -295,7 +295,7 @@ export default class Blog {
   }
 
   // Saves the given blog with the given information into the database
-  // If a blog id is provided, th existing blog will be overridden, otherwise a new blog will be created
+  // If a blog id is provided, the existing blog will be overridden, otherwise a new blog will be created
   // An existing blog can only be edited by the user that originally created the blog
   static async save(userId: string, html: string, css: string, blogId?: string | null) {
     try {

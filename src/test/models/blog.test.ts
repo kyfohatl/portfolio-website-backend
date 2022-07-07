@@ -11,6 +11,98 @@ afterAll(async () => {
   await database.end()
 })
 
+describe("save", () => {
+  const summaryTitle = "<meta property=\"og:title\" content=\"Sample altered summary title\" />"
+  const summaryDescription = "<meta property\"og:description\" content=\"Sample altered summary description\" />"
+  const html = `
+    <head>
+      ${summaryTitle}
+      ${summaryDescription}
+    </head>
+    <body>
+      <h1>Sample Altered Title</h1>
+      <p>Sample altered article content...</p>
+    </body>
+  `
+  const css = `
+    h1 {
+      color: green;
+    }
+    p {
+      color: yellow;
+    }
+  `
+  const userId = "687f93c5-8280-4862-bbeb-fcabbe5631c5"
+  let blogId = ""
+
+  describe("When a valid blog is provided", () => {
+    describe("When a new blog with no blog id is given", () => {
+      it("Creates a new blog entry and returns the blog id", async () => {
+        // First create the blog
+        const summaryTitle = "<meta property=\"og:title\" content=\"Sample summary title\" />"
+        const summaryDescription = "<meta property\"og:description\" content=\"Sample summary description\" />"
+        const html = `
+          <head>
+            ${summaryTitle}
+            ${summaryDescription}
+          </head>
+          <body>
+            <h1>Sample Title</h1>
+            <p>Sample article content...</p>
+          </body>
+        `
+        const css = `
+          h1 {
+            color: red;
+          }
+          p {
+            color: blue;
+          }
+        `
+        blogId = await Blog.save(userId, html, css)
+
+        // Now get the blog
+        const blog = await Blog.where(blogId)
+
+        // Now test it
+        expect(blog.id).toBe(blogId)
+        expect(blog.userId).toBe(userId)
+        expect(blog.html).toBe(html)
+        expect(blog.css).toBe(css)
+        expect(blog.summaryTitle).toBe(summaryTitle)
+        expect(blog.summaryDescription).toBe(summaryDescription)
+      })
+    })
+
+    describe("When a valid blog with an existing id is provided", () => {
+      it("Saves the changes to the existing blog", async () => {
+        // Save the blog
+        await Blog.save(userId, html, css, blogId)
+        // Now get it
+        const blog = await Blog.where(blogId)
+
+        // Now test it
+        expect(blog.id).toBe(blogId)
+        expect(blog.userId).toBe(userId)
+        expect(blog.html).toBe(html)
+        expect(blog.css).toBe(css)
+        expect(blog.summaryTitle).toBe(summaryTitle)
+        expect(blog.summaryDescription).toBe(summaryDescription)
+      })
+    })
+  })
+
+  describe("When an invalid blog id is provided", () => {
+    describe("When a blog is provided with an invalid blog id", () => { })
+
+    describe("When a blog is provided with an invalid user id", () => {
+      describe("When the given user is a valid user but cannot edit the given blog id", () => { })
+
+      describe("When the given user does not exist", () => { })
+    })
+  })
+})
+
 describe("where", () => {
   describe("When a valid blog id is provided", () => {
     it("Returns an instance of the requested blog", async () => {
