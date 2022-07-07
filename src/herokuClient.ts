@@ -1,4 +1,10 @@
 import { Client } from "pg"
+import dotenv from "dotenv"
+
+if (!process.env.DOT_ENV_IS_RUNNING) {
+  // Dot env is not running. Start it
+  dotenv.config()
+}
 
 // Setup database connection
 const database = new Client({
@@ -7,7 +13,5 @@ const database = new Client({
     rejectUnauthorized: false
   }
 })
-
-database.connect()
 
 export default database

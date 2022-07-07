@@ -1,5 +1,10 @@
 import dotenv from "dotenv"
-dotenv.config()
+
+if (!process.env.DOT_ENV_IS_RUNNING) {
+  // Dot env is not running. Start it
+  dotenv.config()
+}
+
 
 import express from "express"
 import cors from "cors"

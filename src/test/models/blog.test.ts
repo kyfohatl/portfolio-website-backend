@@ -1,5 +1,15 @@
 import { BackendError } from "../../custom"
+import database from "../../herokuClient"
 import Blog from "../../models/blog"
+
+// Setup database
+beforeAll(async () => {
+  await database.connect()
+})
+// Close connection once done
+afterAll(async () => {
+  await database.end()
+})
 
 describe("where", () => {
   describe("When a valid blog id is provided", () => {
