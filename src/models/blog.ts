@@ -334,33 +334,29 @@ export default class Blog {
   // Deletes the blog with the given id in the database, if the request comes from the same user that
   // created the blog
   static async delete(blogId: string, userId: string) {
-    try {
-      // Ensure the user can delete this blog
-      await Blog.canEdit(blogId, userId)
+    // Ensure the user can delete this blog
+    await Blog.canEdit(blogId, userId)
 
-      const queryStr = `
-        DELETE FROM blogs
-        WHERE id = $1
-        RETURNING id
-      `
-      const queryVals = [blogId]
+    const queryStr = `
+      DELETE FROM blogs
+      WHERE id = $1
+      RETURNING id
+    `
+    const queryVals = [blogId]
 
-      const promise = new Promise<string>((resolve, reject) => {
-        database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
-          if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-          if (data.rowCount <= 0) {
-            // Blog with given id does not exist
-            return reject({ simpleError: "No blog with given id found", code: 404 } as BackendError)
-          }
+    const promise = new Promise<string>((resolve, reject) => {
+      database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        if (data.rowCount <= 0) {
+          // Blog with given id does not exist
+          return reject({ simpleError: "No blog with given id found", code: 404 } as BackendError)
+        }
 
-          // Blog successfully deleted
-          return resolve(data.rows[0].id)
-        })
+        // Blog successfully deleted
+        return resolve(data.rows[0].id)
       })
+    })
 
-      return promise
-    } catch (err) {
-      throw { unknownError: err, code: 500 }
-    }
+    return promise
   }
 }
