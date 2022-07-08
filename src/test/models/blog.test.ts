@@ -110,13 +110,78 @@ describe("save", () => {
     })
   })
 
-  describe("When an invalid blog id is provided", () => {
-    describe("When a blog is provided with an invalid blog id", () => { })
+  describe("When an invalid blog or user is provided", () => {
+    describe("When a blog is provided with an invalid blog id", () => {
+      it('Throws an error with error code 404', async () => {
+        let blogId: string | undefined = undefined
+        try {
+          blogId = await Blog.save(userId, html, css, "c000f1a7-bac1-4072-9c70-53f8a62a3047")
+        } catch (err) {
+          expect(err).toEqual({ simpleError: "No blog with matching id found", code: 404 } as BackendError)
+        }
+        expect(blogId).toBeUndefined()
+      })
+    })
 
     describe("When a blog is provided with an invalid user id", () => {
-      describe("When the given user is a valid user but cannot edit the given blog id", () => { })
+      describe("When the given user is a valid user but cannot edit the given blog id", () => {
+        let newBlogId = ""
+        let newUser: User
+        // Setup the new user and the new blog
+        beforeAll(async () => {
+          // Make a new user
+          newUser = await User.create("testUser2", "password2")
+          // Make a blog by this user
+          const newHtml = "Nothing!"
+          const newCss = "No css!"
+          newBlogId = await Blog.save(newUser.id, newHtml, newCss)
+        })
 
-      describe("When the given user does not exist", () => { })
+        // Teardown the new user and the new blog
+        afterAll(async () => {
+          // Delete the blog
+          await Blog.delete(newBlogId, newUser.id)
+          // Delete the user
+          await User.delete(newUser.id)
+        })
+
+        it("Throws an error with error code 403", async () => {
+          // Now try to save edits using a different user id
+          let returningBlogId: string | undefined = undefined
+          try {
+            returningBlogId = await Blog.save(userId, html, css, newBlogId)
+          } catch (err) {
+            expect(err).toEqual({ simpleError: "User cannot edit or delete this blog", code: 403 } as BackendError)
+          }
+          expect(returningBlogId).toBeUndefined()
+        })
+      })
+
+      describe("When the given user does not exist attempting to edit a valid blog id", () => {
+        it("Throws an error with error code 403", async () => {
+          let ReturningBlogId: string | undefined = undefined
+          try {
+            ReturningBlogId = await Blog.save("685f942e-5feb-47dc-bace-53c8f65dd3da", html, css, blogId)
+          } catch (err) {
+            expect(err).toEqual({ simpleError: "User cannot edit or delete this blog", code: 403 } as BackendError)
+          }
+          expect(ReturningBlogId).toBeUndefined()
+        })
+      })
+
+      describe("When the given user does not exist attempting to create a new blog", () => {
+        it("Throws an error with code 500", async () => {
+          let returningBlogId: string | undefined
+          try {
+            returningBlogId = await Blog.save("3a1956d7-d425-4c38-97ed-8ed32f1dbc0d", html, css)
+          } catch (err) {
+            const castErr = err as BackendError
+            expect("unknownError" in castErr).toBe(true)
+            expect(castErr.code).toBe(500)
+          }
+          expect(returningBlogId).toBeUndefined()
+        })
+      })
     })
   })
 })
@@ -175,7 +240,7 @@ describe("delete", () => {
         await Blog.where(blog.id)
       } catch (err) {
         const castErr = err as BackendError
-        expect(err).toEqual({ simpleError: "Given blog id does not exist!", code: 400 })
+        expect(err).toEqual({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
       }
       expect(deletedId).toBeUndefined()
     })
