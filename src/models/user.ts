@@ -4,6 +4,12 @@ import database from "../herokuClient"
 
 type UserSearchParam = "username" | "id"
 
+interface UserProps {
+  id: string
+  username: string
+  password?: string
+}
+
 export default class User {
   id: string
   username: string
@@ -72,6 +78,29 @@ export default class User {
     return promise
   }
 
+  // Deletes user with the given id
+  static delete(userId: string) {
+    const queryStr = `
+      DELETE FROM users
+      WHERE id = $1
+      RETURNING id, username, password;
+    `
+    const queryVals = [userId]
+
+    const promise = new Promise<User>((resolve, reject) => {
+      database.query<UserProps>(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        if (data.rowCount <= 0)
+          return reject({ simpleError: "Given user does not exist!", code: 400 } as BackendError)
+
+        const userProps = data.rows[0]
+        resolve(new User(userProps.id, userProps.username, userProps.password))
+      })
+    })
+
+    return promise
+  }
+
   // Adds given third party user to the third party auth providers table
   static createThirdPartyAuthEntry(provider: AuthService, providerId: string, userId: string) {
     const queryStr = `
@@ -82,7 +111,7 @@ export default class User {
 
     const promise = new Promise<void>((resolve, reject) => {
       database.query(queryStr, queryVals, (err, data) => {
-        if (err) return reject({unknownError: err, code: 500} as BackendError)
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         resolve()
       })
     })

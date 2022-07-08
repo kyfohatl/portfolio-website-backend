@@ -1,23 +1,42 @@
 import { BackendError } from "../../custom"
 import database from "../../herokuClient"
 import Blog from "../../models/blog"
+import User from "../../models/user"
 
-// Setup database
+// Test user
+let userId: string
+// Test blog
+let blog: Blog
+
+// Perform setup
 beforeAll(async () => {
+  // Connect to the database
   await database.connect()
+  // Create test user if it does not exist
+  try {
+    const user = await User.create("testUser", "password")
+    userId = user.id
+  } catch (err) {
+    console.log("FAILED TO CREATE TEST USER", err)
+  }
 })
-// Close connection once done
+
+// Perform teardown
 afterAll(async () => {
+  // Delete the test user
+  await User.delete(userId)
+
+  // Close database connection
   await database.end()
 })
 
 describe("save", () => {
-  const summaryTitle = "<meta property=\"og:title\" content=\"Sample altered summary title\" />"
-  const summaryDescription = "<meta property\"og:description\" content=\"Sample altered summary description\" />"
+  const summaryTitle = "Sample altered summary title"
+  const summaryDescription = "Sample altered summary description"
   const html = `
     <head>
-      ${summaryTitle}
-      ${summaryDescription}
+      <meta property="og:title" content="${summaryTitle}" />
+      <meta property="og:description" content="${summaryDescription}" />
     </head>
     <body>
       <h1>Sample Altered Title</h1>
@@ -32,19 +51,18 @@ describe("save", () => {
       color: yellow;
     }
   `
-  const userId = "687f93c5-8280-4862-bbeb-fcabbe5631c5"
   let blogId = ""
 
   describe("When a valid blog is provided", () => {
     describe("When a new blog with no blog id is given", () => {
       it("Creates a new blog entry and returns the blog id", async () => {
         // First create the blog
-        const summaryTitle = "<meta property=\"og:title\" content=\"Sample summary title\" />"
-        const summaryDescription = "<meta property\"og:description\" content=\"Sample summary description\" />"
+        const summaryTitle = "Sample summary title"
+        const summaryDescription = "Sample summary description"
         const html = `
           <head>
-            ${summaryTitle}
-            ${summaryDescription}
+            <meta property="og:title" content="${summaryTitle}" />
+            <meta property="og:description" content="${summaryDescription}" />
           </head>
           <body>
             <h1>Sample Title</h1>
@@ -62,7 +80,7 @@ describe("save", () => {
         blogId = await Blog.save(userId, html, css)
 
         // Now get the blog
-        const blog = await Blog.where(blogId)
+        blog = await Blog.where(blogId)
 
         // Now test it
         expect(blog.id).toBe(blogId)
@@ -79,7 +97,7 @@ describe("save", () => {
         // Save the blog
         await Blog.save(userId, html, css, blogId)
         // Now get it
-        const blog = await Blog.where(blogId)
+        blog = await Blog.where(blogId)
 
         // Now test it
         expect(blog.id).toBe(blogId)
@@ -140,6 +158,26 @@ describe("where", () => {
 
         expect(thrownErr).toEqual({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
       })
+    })
+  })
+})
+
+describe("delete", () => {
+  describe("When valid user and blog id are provided", () => {
+    it("Deletes the given blog and returns the deleted blog id", async () => {
+      // Delete the blog
+      const blogId = await Blog.delete(blog.id, userId)
+      expect(blogId).toBe(blog.id)
+
+      // See if the blog still exists
+      let deletedId: string | undefined = undefined
+      try {
+        await Blog.where(blog.id)
+      } catch (err) {
+        const castErr = err as BackendError
+        expect(err).toEqual({ simpleError: "Given blog id does not exist!", code: 400 })
+      }
+      expect(deletedId).toBeUndefined()
     })
   })
 })

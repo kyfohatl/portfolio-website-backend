@@ -46,7 +46,7 @@ export default class Blog {
     this.tags = tags
   }
 
-  // Returns the blog with the given blogId if it exists
+  // Returns the blog with the given blogId if it exists, otherwise throws an error
   static where(blogId: string) {
     const queryStr = `
       SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
