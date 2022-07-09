@@ -227,6 +227,58 @@ describe("where", () => {
   })
 })
 
+describe("saveTags", () => {
+  const tags = ["Tag1", "Tag2", "Tag3"]
+
+  describe("When given a valid blog id", () => {
+    describe("When a valid list of tags is provided", () => {
+      // Setup tags for testing
+      beforeAll(async () => {
+        // Save tags
+        await Blog.saveTags(blog.id, tags)
+      })
+
+      // Clean up test tags once done
+      afterAll(async () => {
+        await Blog.removeTags(blog.id)
+      })
+
+      it("Saves the tags to the database", async () => {
+        // Now get the blog again
+        const blogWithTags = await Blog.where(blog.id)
+        // Run tests
+        expect(blogWithTags.tags).toEqual(tags)
+      })
+    })
+
+    describe("When an empty list of tags is provided", () => {
+      beforeAll(async () => {
+        await Blog.saveTags(blog.id, [])
+      })
+
+      it("Does nothing", async () => {
+        const blogWithTags = await Blog.where(blog.id)
+        expect(blogWithTags.tags).toEqual([null])
+      })
+    })
+  })
+
+  describe("When given an invalid blog id", () => {
+    it("Throws an error with code 500", async () => {
+      let threwError = true
+      try {
+        await Blog.saveTags("3f55e384-9347-49e8-ac00-6c110ade859e", tags)
+        threwError = false
+      } catch (err) {
+        const castErr = err as BackendError
+        expect("unknownError" in castErr).toBe(true)
+      }
+      // Ensure an error was actually thrown
+      expect(threwError).toBe(true)
+    })
+  })
+})
+
 describe("delete", () => {
   describe("When an invalid blog id is provided", () => {
     const invalidBlogId = "e52abf44-f8ff-49df-a1ab-bfd067e7669d"
