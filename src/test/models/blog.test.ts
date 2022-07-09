@@ -279,6 +279,49 @@ describe("saveTags", () => {
   })
 })
 
+describe("removeTags", () => {
+  describe("When a valid blog id is given", () => {
+    describe("When the blog has one or more tags", () => {
+      const tags = ["Tag1", "Tag2"]
+      // Add some test tags
+      beforeAll(async () => {
+        await Blog.saveTags(blog.id, tags)
+      })
+
+      it("Deletes them and returns a list of the deleted tags", async () => {
+        // Remove the tags
+        const removedTags = await Blog.removeTags(blog.id)
+        // Check which tags have been removed
+        const removedTagsList = removedTags.map((tag) => tag.tag)
+        expect(removedTagsList).toEqual(tags)
+        // Now get the blog again
+        const blogWithTagsRemoved = await Blog.where(blog.id)
+        // Ensure that there are no tags on the database
+        expect(blogWithTagsRemoved.tags).toEqual([null])
+      })
+    })
+
+    describe("When the blog has no tags", () => {
+      it("Does nothing", async () => {
+        // Remove tags
+        const removedTags = await Blog.removeTags(blog.id)
+        // Check that nothing war removed
+        expect(removedTags).toEqual([])
+        // Get the blog again
+        const blogWithoutTags = await Blog.where(blog.id)
+        // Ensure it still has not tags
+        expect(blogWithoutTags.tags).toEqual([null])
+      })
+    })
+  })
+
+  describe("When an invalid blog id is given", () => {
+    it("Returns an empty array of deleted tags", async () => {
+      expect(await Blog.removeTags("dab1606e-6e27-4e71-84ec-57db25a44c71")).toEqual([])
+    })
+  })
+})
+
 describe("delete", () => {
   describe("When an invalid blog id is provided", () => {
     const invalidBlogId = "e52abf44-f8ff-49df-a1ab-bfd067e7669d"

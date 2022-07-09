@@ -1,6 +1,11 @@
 import { BackendError } from "../custom"
 import database from "../herokuClient"
 
+interface TagProps {
+  blog_id: string,
+  tag: string
+}
+
 interface BlogProps {
   id: string,
   user_id: string,
@@ -217,14 +222,15 @@ export default class Blog {
   static async removeTags(blogId: string) {
     const queryStr = `
       DELETE FROM blog_tags
-      WHERE blog_id = $1;
+      WHERE blog_id = $1
+      RETURNING blog_id, tag;
     `
     const queryVals = [blogId]
 
-    const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+    const promise = new Promise<TagProps[]>((resolve, reject) => {
+      database.query<TagProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-        return resolve()
+        return resolve(data.rows)
       })
     })
 
