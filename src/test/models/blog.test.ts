@@ -322,6 +322,84 @@ describe("removeTags", () => {
   })
 })
 
+describe("extractSummary", () => {
+  describe("When the given blog has a valid summary", () => {
+    describe("When the given blog has a summary and tags", () => {
+      it("Extracts all of them and returns them", () => {
+        const html = `
+          <head>
+            <meta property="og:title" content="Summary Title" />
+            <meta property="og:description" content="Summary description" />
+            <meta property="og:image" content="http://somedomain.com/image" />
+            <meta name="keywords" content="Tag1, Tag2, Tag3" />
+          </head>
+        `
+        const summary = Blog.extractSummary(html)
+
+        expect(summary.title).toBe("Summary Title")
+        expect(summary.description).toBe("Summary description")
+        expect(summary.image).toBe("http://somedomain.com/image")
+        expect(summary.tags).toEqual(["Tag1", "Tag2", "Tag3"])
+      })
+    })
+
+    describe("When the given blog only has a summary", () => {
+      it("Extracts the summaries and return them", () => {
+        const html = `
+          <head>
+            <meta property="og:title" content="Summary Title" />
+            <meta property="og:description" content="Summary description" />
+            <meta property="og:image" content="http://somedomain.com/image" />
+          </head>
+        `
+        const summary = Blog.extractSummary(html)
+
+        expect(summary.title).toBe("Summary Title")
+        expect(summary.description).toBe("Summary description")
+        expect(summary.image).toBe("http://somedomain.com/image")
+        expect(summary.tags).toEqual([])
+      })
+    })
+
+    describe("When the given blog only has tags", () => {
+      it("Extracts and return the tags", () => {
+        const html = `
+          <head>
+            <meta name="keywords" content="Tag1, Tag2, Tag3" />
+          </head>
+        `
+        const summary = Blog.extractSummary(html)
+
+        expect(summary.title).toBe("")
+        expect(summary.description).toBe("")
+        expect(summary.image).toBe("")
+        expect(summary.tags).toEqual(["Tag1", "Tag2", "Tag3"])
+      })
+    })
+  })
+
+  describe("When the given blog does not have a valid summary", () => {
+    it("Returns empty fields for tags and all summaries", () => {
+      const html = `
+        <head>
+          <meta property="og:invalid" content="Some content" />
+          <meta property="invalid" content="Some content 2" />
+          <meta property="og:title" invalid="Some content 3" />
+          <meta name="invalid" content="Some content 4" />
+          <meta name="keyword" invalid="Some content 5" />
+          <invalid name="keyword" content="Tag1, Tag2" />
+        </head>
+      `
+      const summary = Blog.extractSummary(html)
+
+      expect(summary.title).toBe("")
+      expect(summary.description).toBe("")
+      expect(summary.image).toBe("")
+      expect(summary.tags).toEqual([])
+    })
+  })
+})
+
 describe("delete", () => {
   describe("When an invalid blog id is provided", () => {
     const invalidBlogId = "e52abf44-f8ff-49df-a1ab-bfd067e7669d"
@@ -406,4 +484,15 @@ describe("delete", () => {
       })
     })
   })
+})
+
+describe("mostRecent", () => {
+  // beforeAll(async () => {
+  //   const user = await User.create("Hello123", "abc")
+  //   const blog = await Blog.save(user.id, "Some html", "Some css")
+  // })
+
+  // it("nothing", () => {
+  //   expect(1).toBe(1)
+  // })
 })
