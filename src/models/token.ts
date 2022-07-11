@@ -2,9 +2,9 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import jwt from "jsonwebtoken"
-import database from "../herokuClient"
 
 import { AuthUser, BackendError } from "../custom"
+import Database from "../lib/Database"
 
 interface VerifyTokenReturnFailure {
   isValid: false
@@ -51,7 +51,7 @@ export default class Token {
     const queryVals = [token]
 
     try {
-      const data = await database.query(queryStr, queryVals)
+      const data = await Database.getClient().query(queryStr, queryVals)
       if (data.rows[0].exists) {
         // Token exists in database. Verify it
         try {
@@ -95,7 +95,7 @@ export default class Token {
       VALUES ($1);
     `
     const queryVals = [refreshToken]
-    database.query(queryStr, queryVals, (err, data) => {
+    Database.getClient().query(queryStr, queryVals, (err, data) => {
       if (err) throw ({ unknownError: err, code: 500 } as BackendError)
     })
 
@@ -122,7 +122,7 @@ export default class Token {
     `
     const queryVals = [refreshToken]
     const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
         if (err) return reject(err)
         return resolve()
       })

@@ -1,7 +1,14 @@
 import { BackendError } from "../../custom"
-import database from "../../herokuClient"
+import Database from "../../lib/Database"
 import Blog from "../../models/blog"
 import User from "../../models/user"
+
+import dotenv from "dotenv"
+
+if (!process.env.DOT_ENV_IS_RUNNING) {
+  // Dot env is not running. Start it
+  dotenv.config()
+}
 
 // Test user
 let userId: string
@@ -10,8 +17,8 @@ let blog: Blog
 
 // Perform setup
 beforeAll(async () => {
-  // Connect to the database
-  await database.connect()
+  // Setup database client
+  await Database.initialize(process.env.TEST_DATABASE_URL as string)
   // Create test user if it does not exist
   try {
     const user = await User.create("testUser", "password")
@@ -27,7 +34,7 @@ afterAll(async () => {
   await User.delete(userId)
 
   // Close database connection
-  await database.end()
+  await Database.closeConnection()
 })
 
 describe("save", () => {
@@ -189,11 +196,11 @@ describe("save", () => {
 describe("where", () => {
   describe("When a valid blog id is provided", () => {
     it("Returns an instance of the requested blog", async () => {
-      const blog = await Blog.where("9634ef44-d2bf-4af0-afb6-72e9dcff0899")
-      expect(blog.id).toBe("9634ef44-d2bf-4af0-afb6-72e9dcff0899")
-      expect(blog.userId).toBe("8e637019-bf89-46a9-909a-dbb532647eaf")
-      expect(blog.summaryTitle).toBe("Article 2")
-      expect(blog.summaryDescription).toBe("Article 2 summary")
+      const newBlog = await Blog.where(blog.id)
+      expect(newBlog.id).toBe(blog.id)
+      expect(newBlog.userId).toBe(blog.userId)
+      expect(newBlog.summaryTitle).toBe(blog.summaryTitle)
+      expect(newBlog.summaryDescription).toBe(blog.summaryDescription)
     })
   })
 

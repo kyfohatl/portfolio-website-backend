@@ -1,5 +1,5 @@
 import { BackendError } from "../custom"
-import database from "../herokuClient"
+import Database from "../lib/Database"
 
 interface TagProps {
   blog_id: string,
@@ -68,7 +68,7 @@ export default class Blog {
     const queryVals = [blogId]
 
     const promise = new Promise<Blog>((resolve, reject) => {
-      database.query<BlogProps>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Could not find given blog id
@@ -108,7 +108,7 @@ export default class Blog {
     const queryVals = [limit, offset]
 
     const promise = new Promise<Blog[]>((resolve, reject) => {
-      database.query<BlogProps>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) return reject({ simpleError: "No more blogs to show", code: 404 } as BackendError)
 
@@ -205,7 +205,7 @@ export default class Blog {
     }
 
     const promise = new Promise<string>((resolve, reject) => {
-      database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           return reject({ simpleError: "Error: Could not save blog into database", code: 500 } as BackendError)
@@ -228,7 +228,7 @@ export default class Blog {
     const queryVals = [blogId]
 
     const promise = new Promise<TagProps[]>((resolve, reject) => {
-      database.query<TagProps>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<TagProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         return resolve(data.rows)
       })
@@ -263,7 +263,7 @@ export default class Blog {
     }
 
     const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         return resolve()
       })
@@ -282,7 +282,7 @@ export default class Blog {
     const queryVals = [blogId]
 
     const promise = new Promise<void>((resolve, reject) => {
-      database.query<{ user_id: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ user_id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Blog id not found
@@ -351,7 +351,7 @@ export default class Blog {
     const queryVals = [blogId]
 
     const promise = new Promise<string>((resolve, reject) => {
-      database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Blog with given id does not exist

@@ -1,6 +1,6 @@
 import { QueryResult } from "pg"
 import { AuthService, BackendError } from "../custom"
-import database from "../herokuClient"
+import Database from "../lib/Database"
 
 type UserSearchParam = "username" | "id"
 
@@ -31,7 +31,7 @@ export default class User {
 
     // Now perform the query
     const promise = new Promise<User[]>((resolve, reject) => {
-      database.query<{ id: string, username: string, password: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ id: string, username: string, password: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) return reject({ simpleError: "No users found", code: 400 } as BackendError)
 
@@ -65,7 +65,7 @@ export default class User {
     }
 
     const promise = new Promise<User>((resolve, reject) => {
-      database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (!data || data.rows.length !== 1) return reject({
           simpleError: "User creation failed"
@@ -88,7 +88,7 @@ export default class User {
     const queryVals = [userId]
 
     const promise = new Promise<User>((resolve, reject) => {
-      database.query<UserProps>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<UserProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0)
           return reject({ simpleError: "Given user does not exist!", code: 400 } as BackendError)
@@ -110,7 +110,7 @@ export default class User {
     const queryVals = [userId, provider, providerId]
 
     const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         resolve()
       })
@@ -132,7 +132,7 @@ export default class User {
     // Try to find the user
     let data: QueryResult<{ user_id: string }>
     try {
-      data = await database.query<{ user_id: string }>(queryStr, queryVals)
+      data = await Database.getClient().query<{ user_id: string }>(queryStr, queryVals)
     } catch (err) {
       throw ({ unknownError: err, code: 500 } as BackendError)
     }
