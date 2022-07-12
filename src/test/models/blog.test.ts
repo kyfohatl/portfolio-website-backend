@@ -494,12 +494,97 @@ describe("delete", () => {
 })
 
 describe("mostRecent", () => {
-  // beforeAll(async () => {
-  //   const user = await User.create("Hello123", "abc")
-  //   const blog = await Blog.save(user.id, "Some html", "Some css")
-  // })
+  const NUM_BLOGS = 20
+  let newUser: User
 
-  // it("nothing", () => {
-  //   expect(1).toBe(1)
-  // })
+  // Creates sample html and css strings using the given number
+  function createSampleHtmlAndCss(i: number) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta property="og:title" content="Summary Title ${i}" />
+          <meta property="og:description" content="Summary description ${i}" />
+          <meta name="keywords" content="Article ${i} Tag 1, Article ${i} Tag 2" />
+        </head>
+        <body>
+          <h1>Article ${i} Title</h1>
+          <p>Article ${i} content</p>
+        </body>
+      </html>
+    `
+    const css = `
+      CSS ${i}
+    `
+    return [html, css]
+  }
+
+  async function getBlogsAndTestThem(limit: number, offset: number) {
+    // Get the blogs
+    const blogs = await Blog.mostRecent(limit, offset)
+
+    // Test them
+    for (let i = 0; i < blogs.length; i++) {
+      const [html, css] = createSampleHtmlAndCss(i + offset + 1)
+      expect(blogs[i].html).toBe(html)
+      expect(blogs[i].css).toBe(css)
+    }
+  }
+
+  // Create some test blogs
+  beforeAll(async () => {
+    // Create new sample user
+    newUser = await User.create("mostRecentTester", "pass")
+
+    // Now create the blogs
+    for (let i = 1; i < NUM_BLOGS + 1; i++) {
+      const [html, css] = createSampleHtmlAndCss(i)
+      await Blog.save(newUser.id, html, css)
+    }
+  })
+
+  // Remove sample blogs
+  afterAll(async () => {
+    // Delete blogs
+    await Blog.deleteAllUserBlogs(newUser.id)
+    // Delete user
+    await User.delete(newUser.id)
+  })
+
+  describe("When given a typical limit and offset", () => {
+    it("Returns the correct list of blogs", async () => {
+      await getBlogsAndTestThem(11, 3)
+    })
+  })
+
+  describe("When the limit is higher than the total number of blogs", () => {
+    it("Returns all blogs in the database from the given offset", async () => {
+      await getBlogsAndTestThem(NUM_BLOGS + 10, 5)
+    })
+  })
+
+  describe("When the limit is 0", () => {
+    it("Throws an error with code 404", async () => {
+      let blogs: Blog[] | undefined
+
+      try {
+        blogs = await Blog.mostRecent(0, 4)
+      } catch (err) {
+        expect(err).toEqual({ simpleError: "No more blogs to show", code: 404 } as BackendError)
+      }
+      expect(blogs).toBeUndefined()
+    })
+  })
+
+  describe("When the offset is higher than the total number of blogs", () => {
+    it("Returns an empty list of blogs", async () => {
+      let blogs: Blog[] | undefined
+      try {
+        blogs = await Blog.mostRecent(12, NUM_BLOGS + 5)
+      } catch (err) {
+        expect(err).toEqual({ simpleError: "No more blogs to show", code: 404 } as BackendError)
+      }
+      expect(blogs).toBeUndefined()
+    })
+  })
 })

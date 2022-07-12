@@ -365,4 +365,21 @@ export default class Blog {
 
     return promise
   }
+
+  static async deleteAllUserBlogs(userId: string) {
+    const queryStr = `
+      DELETE FROM blogs
+      WHERE user_id = $1;
+    `
+    const queryVals = [userId]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        resolve()
+      })
+    })
+
+    return promise
+  }
 }
