@@ -26,7 +26,7 @@ beforeAll(async () => {
 // Perform teardown
 afterAll(async () => {
   // Delete the test user
-  await User.delete(userId)
+  await User.delete("id", userId)
 
   // Close database connection
   await runTestEnvTeardown()
@@ -144,7 +144,7 @@ describe("save", () => {
           // Delete the blog
           await Blog.delete(newBlogId, newUser.id)
           // Delete the user
-          await User.delete(newUser.id)
+          await User.delete("id", newUser.id)
         })
 
         it("Throws an error with error code 403", async () => {
@@ -441,7 +441,7 @@ describe("delete", () => {
 
         // Delete test user once done
         afterAll(async () => {
-          await User.delete(newUser.id)
+          await User.delete("id", newUser.id)
         })
 
         it("Throws an error with code 403", async () => {
@@ -543,7 +543,7 @@ describe("mostRecent", () => {
     // Delete blogs
     await Blog.deleteAllUserBlogs(newUser.id)
     // Delete user
-    await User.delete(newUser.id)
+    await User.delete("id", newUser.id)
   })
 
   describe("When given a typical limit and offset", () => {

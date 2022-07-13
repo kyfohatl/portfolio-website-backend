@@ -48,6 +48,9 @@ export default class User {
     let queryStr: string
     let queryVals: string[]
 
+    // Ensure username is not an empty string
+    if (!username) throw ({ simpleError: "No username given!", code: 400 } as BackendError)
+
     if (password) {
       queryStr = `
         INSERT INTO users(username,password)
@@ -79,13 +82,13 @@ export default class User {
   }
 
   // Deletes user with the given id
-  static delete(userId: string) {
+  static delete(type: UserSearchParam, param: string) {
     const queryStr = `
       DELETE FROM users
-      WHERE id = $1
+      WHERE ${type} = $1
       RETURNING id, username, password;
     `
-    const queryVals = [userId]
+    const queryVals = [param]
 
     const promise = new Promise<User>((resolve, reject) => {
       Database.getClient().query<UserProps>(queryStr, queryVals, (err, data) => {

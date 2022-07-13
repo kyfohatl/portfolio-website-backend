@@ -50,7 +50,7 @@ describe("where", () => {
     // Remove test users
     afterAll(async () => {
       for (const user of users) {
-        await User.delete(user.id)
+        await User.delete("id", user.id)
       }
     })
 
@@ -90,6 +90,62 @@ describe("where", () => {
 
     describe("When a username is given", () => {
       itBehavesLikeInvalidParam("username", "someUsername")
+    })
+  })
+})
+
+describe("create", () => {
+  function itBehavesLikeValidParam(username: string, password?: string) {
+    it("Creates the user and returns it", async () => {
+      // Create the user
+      const createReturn = await User.create(username, password)
+
+      // Get the user
+      const whereReturn = await User.where("username", username)
+
+      // Now test
+      expect(createReturn.id).toBe(whereReturn.id)
+      expect(createReturn.username).toBe(whereReturn.username)
+      if (password) {
+        expect(createReturn.password).toBe(whereReturn.password)
+      } else {
+        expect(whereReturn.password).toBeFalsy()
+      }
+    })
+  }
+
+  describe("When both a username and password are given", () => {
+    const USERNAME = "sample"
+    const PASSWORD = "pass1233"
+
+    // Remove test user
+    afterAll(async () => {
+      await User.delete("username", USERNAME)
+    })
+
+    itBehavesLikeValidParam(USERNAME, PASSWORD)
+  })
+
+  describe("When only a username is given", () => {
+    const USERNAME = "sample2"
+
+    // Remove test user
+    afterAll(async () => {
+      await User.delete("username", USERNAME)
+    })
+
+    itBehavesLikeValidParam(USERNAME)
+  })
+
+  describe("When the username given is an empty string", () => {
+    it("Throws an error with code 400", async () => {
+      let user: User | undefined = undefined
+      try {
+        user = await User.create("", "pass123")
+      } catch (err) {
+        expect(err).toEqual({ simpleError: "No username given!", code: 400 } as BackendError)
+      }
+      expect(user).toBeUndefined()
     })
   })
 })
