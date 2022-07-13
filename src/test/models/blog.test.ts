@@ -1,14 +1,9 @@
 import { BackendError } from "../../custom"
-import Database from "../../lib/Database"
 import Blog from "../../models/blog"
 import User from "../../models/user"
 
-import dotenv from "dotenv"
-
-if (!process.env.DOT_ENV_IS_RUNNING) {
-  // Dot env is not running. Start it
-  dotenv.config()
-}
+import runTestEnvSetup from "../setup"
+import runTestEnvTeardown from "../teardown"
 
 // Test user
 let userId: string
@@ -18,7 +13,7 @@ let blog: Blog
 // Perform setup
 beforeAll(async () => {
   // Setup database client
-  await Database.initialize(process.env.TEST_DATABASE_URL as string)
+  await runTestEnvSetup()
   // Create test user if it does not exist
   try {
     const user = await User.create("testUser", "password")
@@ -34,7 +29,7 @@ afterAll(async () => {
   await User.delete(userId)
 
   // Close database connection
-  await Database.closeConnection()
+  await runTestEnvTeardown()
 })
 
 describe("save", () => {
@@ -587,4 +582,7 @@ describe("mostRecent", () => {
       expect(blogs).toBeUndefined()
     })
   })
+
+  // TODO
+  describe("When there are not blogs in the database", () => { })
 })

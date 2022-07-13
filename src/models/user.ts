@@ -2,7 +2,7 @@ import { QueryResult } from "pg"
 import { AuthService, BackendError } from "../custom"
 import Database from "../lib/Database"
 
-type UserSearchParam = "username" | "id"
+export type UserSearchParam = "username" | "id"
 
 interface UserProps {
   id: string
@@ -21,7 +21,7 @@ export default class User {
     this.password = password
   }
 
-  // Will return a list of users matching given parameter
+  // Will return the user matching the given parameter, or throws an error if no such user is found
   static where(type: UserSearchParam, param: string) {
     const queryStr = `
       SELECT id, username, password FROM users
@@ -30,13 +30,13 @@ export default class User {
     const queryVals = [param]
 
     // Now perform the query
-    const promise = new Promise<User[]>((resolve, reject) => {
+    const promise = new Promise<User>((resolve, reject) => {
       Database.getClient().query<{ id: string, username: string, password: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) return reject({ simpleError: "No users found", code: 400 } as BackendError)
 
-        // Create a new User class instance for each row that is returned
-        resolve(data.rows.map((row) => new User(row.id, row.username, row.password)))
+        // Return the user
+        resolve(new User(data.rows[0].id, data.rows[0].username, data.rows[0].password))
       })
     })
 
@@ -150,7 +150,7 @@ export default class User {
       // User exists already. Return user
       // Notice that we are finding the user based on id and not email, since it is possible for the 
       // given third party email to be incorrect (e.g. user changed their email on the third party service)
-      return (await User.where("id", data.rows[0].user_id))[0]
+      return (await User.where("id", data.rows[0].user_id))
     } catch (err) {
       throw err
     }
