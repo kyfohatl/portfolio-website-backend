@@ -149,3 +149,91 @@ describe("create", () => {
     })
   })
 })
+
+describe("delete", () => {
+  function itBehavesLikeDeletingUser(username: string, password: string, id?: string) {
+    it("Deletes the user and returns it", async () => {
+      let user: User
+      if (id) {
+        user = await User.delete("id", id)
+      } else {
+        user = await User.delete("username", username)
+      }
+
+      expect(user.username).toBe(username)
+      expect(user.password).toBe(password)
+
+      // Make sure user is in fact deleted
+      let deletedUser: User | undefined = undefined
+      try {
+        deletedUser = await User.where("username", username)
+      } catch (err) {
+        expect(err).toEqual({ simpleError: "No users found", code: 400 } as BackendError)
+      }
+      expect(deletedUser).toBeUndefined()
+    })
+  }
+
+  describe("When given a valid username", () => {
+    const USERNAME = "test123"
+    const PASSWORD = "pass"
+
+    // Create a test user
+    beforeAll(async () => {
+      await User.create(USERNAME, PASSWORD)
+    })
+
+    itBehavesLikeDeletingUser(USERNAME, PASSWORD)
+  })
+
+  describe("When given a valid id", () => {
+    // Create a test user
+    const USERNAME = "test456"
+    const PASSWORD = "pass2"
+    let id: string = ""
+    beforeAll(async () => {
+      const user = await User.create(USERNAME, PASSWORD)
+      id = user.id
+    })
+
+    itBehavesLikeDeletingUser(USERNAME, PASSWORD, id)
+  })
+
+  function itBehavesLikeThrowError(type: UserSearchParam, param: string) {
+    it("Throws an error with code 400", async () => {
+      let user: User | undefined = undefined
+      try {
+        user = await User.delete(type, param)
+      } catch (err) {
+        expect(err).toEqual({ simpleError: "Given user does not exist!", code: 400 } as BackendError)
+      }
+      expect(user).toBeUndefined()
+    })
+  }
+
+  describe("When given invalid parameters", () => {
+    // Create a test user
+    const USERNAME = "test789"
+    const PASSWORD = "pass3"
+    beforeAll(async () => {
+      await User.create(USERNAME, PASSWORD)
+    })
+
+    // Delete test user
+    afterAll(async () => {
+      await User.delete("username", USERNAME)
+    })
+
+    describe("When given an invalid username", () => {
+      itBehavesLikeThrowError("username", "invalidUsername")
+    })
+
+    describe("When given an invalid id", () => {
+      itBehavesLikeThrowError("id", "7ebbf2cf-37e9-4776-afbc-32cc8d3121d7")
+    })
+  })
+
+  describe("When the database has no users", () => {
+    itBehavesLikeThrowError("username", "invalidUsername2")
+  })
+})
