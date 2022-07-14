@@ -10,6 +10,12 @@ interface UserProps {
   password?: string
 }
 
+interface ThirdPartyAuthEntry {
+  user_id: string,
+  provider: AuthService,
+  provider_user_id: string
+}
+
 export default class User {
   id: string
   username: string
@@ -157,5 +163,43 @@ export default class User {
     } catch (err) {
       throw err
     }
+  }
+
+  // Returns the third party auth entry with the given id and provider type, or throws an error if not found
+  static async getThirdPartyAuthEntry(provider: AuthService, providerId: string) {
+    const queryStr = `
+      SELECT user_id, provider, provider_user_id
+      FROM auth_providers
+      WHERE provider = $1 AND provider_user_id = $2;
+    `
+    const queryVals = [provider, providerId]
+
+    const promise = new Promise<ThirdPartyAuthEntry>((resolve, reject) => {
+      Database.getClient().query<ThirdPartyAuthEntry>(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        if (data.rowCount <= 0) return reject({ simpleError: "No such entry found!", code: 404 } as BackendError)
+        return resolve(data.rows[0])
+      })
+    })
+
+    return promise
+  }
+
+  // Deletes the entry for the given provider type and id if it exists from the auth_providers table
+  static async deleteThirdPartyAuthEntry(provider: AuthService, providerId: string) {
+    const queryStr = `
+      DELETE FROM auth_providers
+      WHERE provider = $1 AND provider_user_id = $2;
+    `
+    const queryVals = [provider, providerId]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        resolve()
+      })
+    })
+
+    return promise
   }
 }

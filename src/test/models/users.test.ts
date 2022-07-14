@@ -1,4 +1,4 @@
-import { BackendError } from "../../custom"
+import { AuthService, BackendError } from "../../custom"
 import User, { UserSearchParam } from "../../models/user"
 import runTestEnvSetup from "../setup"
 import runTestEnvTeardown from "../teardown"
@@ -235,5 +235,94 @@ describe("delete", () => {
 
   describe("When the database has no users", () => {
     itBehavesLikeThrowError("username", "invalidUsername2")
+  })
+})
+
+describe("createThirdPartyAuthEntry", () => {
+  const PROVIDER = "facebook"
+  const PROVIDER_ID = "facebookId1234"
+  let userId: string
+
+  // Setup
+  const USERNAME = "testABC"
+  beforeAll(async () => {
+    // Create a test user
+    const user = await User.create(USERNAME)
+    userId = user.id
+
+    // Create a test entry
+    await User.createThirdPartyAuthEntry(PROVIDER, PROVIDER_ID, userId)
+  })
+
+  // Teardown
+  afterAll(async () => {
+    // Remove test user
+    await User.delete("username", USERNAME)
+    // Remove test entry
+    await User.deleteThirdPartyAuthEntry(PROVIDER, PROVIDER_ID)
+  })
+
+  function itBehavesLikeValidEntry(provider: AuthService, providerId: string) {
+    it("Creates an entry for the user", async () => {
+      // Create the entry
+      await User.createThirdPartyAuthEntry(provider, providerId, userId)
+
+      // Check if the entry has been correctly created
+      const entry = await User.getThirdPartyAuthEntry(provider, providerId)
+      expect(entry.provider).toBe(provider)
+      expect(entry.provider_user_id).toBe(providerId)
+      expect(entry.user_id).toBe(userId)
+    })
+  }
+
+  describe("When valid parameters are given", () => {
+    const NEW_PROVIDER_ID = "someOtherFacebookId"
+    // Clean up test entry
+    afterAll(async () => {
+      await User.deleteThirdPartyAuthEntry(PROVIDER, NEW_PROVIDER_ID)
+    })
+
+    itBehavesLikeValidEntry(PROVIDER, NEW_PROVIDER_ID)
+  })
+
+  describe("When a valid provider and user id is given but the provider id already exists", () => {
+    const NEW_PROVIDER = "google"
+
+    // Clean up test entry
+    afterAll(async () => {
+      await User.deleteThirdPartyAuthEntry(NEW_PROVIDER, PROVIDER_ID)
+    })
+
+    itBehavesLikeValidEntry(NEW_PROVIDER, PROVIDER_ID)
+  })
+
+  describe("When invalid username or provider id are given", () => {
+    function itBehavesLikeThrowError(provider: AuthService, providerId: string, userId: string) {
+      it("Throws an error with code 500", async () => {
+        let threwErr = true
+        try {
+          await User.createThirdPartyAuthEntry(provider, providerId, userId)
+          threwErr = false
+        } catch (err) {
+          const castErr = err as BackendError
+          expect("unknownError" in castErr).toBeTruthy()
+          expect(castErr.code).toBe(500)
+        }
+      })
+    }
+
+    describe("When the given entry (provider and provider id) already exists", () => {
+      itBehavesLikeThrowError(PROVIDER, PROVIDER_ID, userId)
+    })
+
+    const NEW_PROVIDER_ID = "testFacebookId456"
+
+    describe("When the given user id is not a valid uuid", () => {
+      itBehavesLikeThrowError(PROVIDER, NEW_PROVIDER_ID, "invalid")
+    })
+
+    describe("When the given user id is a valid uuid but not a valid user", () => {
+      itBehavesLikeThrowError(PROVIDER, NEW_PROVIDER_ID, "2595fc7c-878b-432f-b00a-29c89835bd65")
+    })
   })
 })
