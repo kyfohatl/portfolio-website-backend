@@ -2,7 +2,7 @@ import Token from "../../models/token"
 import runTestEnvSetup from "../setup"
 import runTestEnvTeardown from "../teardown"
 import jwt from "jsonwebtoken"
-import { AuthUser } from "../../custom"
+import { AuthUser, BackendError } from "../../custom"
 
 // Run setup
 beforeAll(async () => {
@@ -142,8 +142,48 @@ describe("doesTokenExist", () => {
   })
 })
 
-// describe("saveRefreshToken", () => {
-//   describe("When the given token does not already exist in the database", () => {
-//     it("")
-//   })
-// })
+describe("saveRefreshToken", () => {
+  const REFRESH_TOKEN = "someToken"
+
+  describe("When the given token does not already exist in the database", () => {
+    // Clear test token from database
+    afterAll(async () => {
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+    })
+
+    it("Saves the given token into the database", async () => {
+      // Save the token
+      await Token.saveRefreshToken(REFRESH_TOKEN)
+
+      // Now check if it exists
+      expect(await Token.doesTokenExist(REFRESH_TOKEN)).toBe(true)
+    })
+  })
+
+  describe("When the given token already exists in the database", () => {
+    // Save test token
+    beforeAll(async () => {
+      await Token.saveRefreshToken(REFRESH_TOKEN)
+    })
+
+    // Delete test token
+    afterAll(async () => {
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+    })
+
+    it("Throws an error with code 500", async () => {
+      let threwErr = true
+      try {
+        await Token.saveRefreshToken(REFRESH_TOKEN)
+        threwErr = false
+      } catch (err) {
+        const castErr = err as BackendError
+        expect("unknownError" in castErr).toBe(true)
+        expect(castErr.code).toBe(500)
+      }
+
+      // Ensure an error was thrown
+      expect(threwErr).toBe(true)
+    })
+  })
+})
