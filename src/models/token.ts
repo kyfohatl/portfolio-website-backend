@@ -41,18 +41,8 @@ export default class Token {
   static async verifyRefToken(token: string): Promise<VerifyTokenReturn> {
     if (!token) return { isValid: false }
 
-    const queryStr = `
-      SELECT EXISTS(
-        SELECT 1
-        FROM refresh_tokens
-        WHERE token = $1
-      );
-    `
-    const queryVals = [token]
-
     try {
-      const data = await Database.getClient().query(queryStr, queryVals)
-      if (data.rows[0].exists) {
+      if (await Token.doesTokenExist(token)) {
         // Token exists in database. Verify it
         try {
           const jwtData = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string)
@@ -73,11 +63,27 @@ export default class Token {
     }
   }
 
+  // Returns true if the given token exists in the database and false otherwise
+  static async doesTokenExist(token: string) {
+    const queryStr = `
+      SELECT EXISTS(
+        SELECT 1
+        FROM refresh_tokens
+        WHERE token = $1
+      );
+    `
+    const queryVals = [token]
+    const data = await Database.getClient().query<{ exists: boolean }>(queryStr, queryVals)
+
+    return data.rows[0].exists
+  }
+
   static generateAccessToken(authUser: AuthUser) {
     return {
       token: jwt.sign(
         authUser,
-        process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: ACC_TOKEN_EXPIRY_MINUTES + "m" }
+        process.env.ACCESS_TOKEN_SECRET as string,
+        { expiresIn: ACC_TOKEN_EXPIRY_MINUTES + "m" }
       ),
       expiresInSeconds: ACC_TOKEN_EXPIRY_SECONDS
     }
@@ -86,7 +92,8 @@ export default class Token {
   static async generateRefreshToken(authUser: AuthUser) {
     const refreshToken = jwt.sign(
       authUser,
-      process.env.REFRESH_TOKEN_SECRET as string, { expiresIn: REF_TOKEN_EXPIRY_DAYS + "d" }
+      process.env.REFRESH_TOKEN_SECRET as string,
+      { expiresIn: REF_TOKEN_EXPIRY_DAYS + "d" }
     )
 
     // Add refresh token to the database
@@ -99,7 +106,7 @@ export default class Token {
   }
 
   // Saves given refresh token to the database
-  static saveRefreshToken(token: string) {
+  static async saveRefreshToken(token: string) {
     const queryStr = `
       INSERT INTO refresh_tokens(token)
       VALUES ($1);
@@ -115,6 +122,8 @@ export default class Token {
 
     return promise
   }
+
+  // static async getRefreshToken()
 
   static async generateTokenPair(authUser: AuthUser) {
     try {

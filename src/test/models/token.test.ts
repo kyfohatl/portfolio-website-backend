@@ -115,3 +115,35 @@ describe("verifyRefToken", () => {
     })
   })
 })
+
+describe("doesTokenExist", () => {
+  const REFRESH_TOKEN = "someRefreshToken"
+
+  describe("When the given token exists in the database", () => {
+    // Save test token to the database
+    beforeAll(async () => {
+      await Token.saveRefreshToken(REFRESH_TOKEN)
+    })
+
+    // Delete test token
+    afterAll(async () => {
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+    })
+
+    it("Returns true", async () => {
+      expect(await Token.doesTokenExist(REFRESH_TOKEN)).toBe(true)
+    })
+  })
+
+  describe("When the given token does not exist in the database", () => {
+    it("Returns false", async () => {
+      expect(await Token.doesTokenExist(REFRESH_TOKEN)).toBe(false)
+    })
+  })
+})
+
+// describe("saveRefreshToken", () => {
+//   describe("When the given token does not already exist in the database", () => {
+//     it("")
+//   })
+// })
