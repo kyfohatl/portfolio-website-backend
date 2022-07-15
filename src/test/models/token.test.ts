@@ -17,13 +17,13 @@ afterAll(async () => {
 // Mock the jwt library
 jest.mock("jsonwebtoken")
 
-describe("verifyAccToken", () => {
-  // Mock the verify function
-  const verify = jest.mocked<(
-    token: string,
-    secretOrPublicKey: jwt.Secret
-  ) => string | jwt.JwtPayload>(jwt.verify, true)
+// Mock the verify function
+const verify = jest.mocked<(
+  token: string,
+  secretOrPublicKey: jwt.Secret
+) => string | jwt.JwtPayload>(jwt.verify, true)
 
+describe("verifyAccToken", () => {
   describe("When given a valid token", () => {
     const SAMPLE_USER: AuthUser = { id: "id1234" }
 
@@ -49,6 +49,28 @@ describe("verifyAccToken", () => {
     it("Returns and object containing false", () => {
       const data = Token.verifyAccToken("SomeInvalidToken")
       expect(data).toEqual({ isValid: false })
+    })
+  })
+})
+
+describe("verifyRefToken", () => {
+  describe("When given a valid refresh token", () => {
+    beforeAll(() => {
+      verify.mockReset()
+      //verify.mockReturnValue()
+    })
+
+    it("Returns token data along with true", () => { })
+  })
+
+  describe('When given an invalid refresh token', () => {
+    describe("When the refresh token does not exist in the database", () => { })
+
+    describe("When the refresh token exists in the database", () => {
+      // TODO: Mock the database refresh token query method (WHICH NEEDS TO BE ABSTRACTED AWAY)
+      beforeAll(() => { })
+
+      it("Returns an object containing false", () => { })
     })
   })
 })
