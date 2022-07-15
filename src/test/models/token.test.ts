@@ -55,22 +55,63 @@ describe("verifyAccToken", () => {
 
 describe("verifyRefToken", () => {
   describe("When given a valid refresh token", () => {
-    beforeAll(() => {
+    const SAMPLE_USER = { id: "id456" }
+    const REFRESH_TOKEN = "someRefreshToken"
+
+    beforeAll(async () => {
+      // Setup jwt.verify mock
       verify.mockReset()
-      //verify.mockReturnValue()
+      verify.mockReturnValue(SAMPLE_USER)
+      // Save refresh token to database
+      await Token.saveRefreshToken(REFRESH_TOKEN)
     })
 
-    it("Returns token data along with true", () => { })
+    afterAll(async () => {
+      // Delete refresh token
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+    })
+
+    it("Returns token data along with true", async () => {
+      const data = await Token.verifyRefToken(REFRESH_TOKEN)
+      expect(data).toEqual({ isValid: true, user: SAMPLE_USER })
+    })
   })
 
   describe('When given an invalid refresh token', () => {
-    describe("When the refresh token does not exist in the database", () => { })
+    describe("When the refresh token does not exist in the database", () => {
+      beforeAll(() => {
+        verify.mockReset()
+        // Assume that the jwt.verify approves the token
+        verify.mockReturnValue({ id: "id789" })
+      })
+
+      it("Returns an object with isValid set to false", async () => {
+        const data = await Token.verifyRefToken("someRefreshToken")
+        expect(data).toEqual({ isValid: false })
+      })
+    })
 
     describe("When the refresh token exists in the database", () => {
-      // TODO: Mock the database refresh token query method (WHICH NEEDS TO BE ABSTRACTED AWAY)
-      beforeAll(() => { })
+      const REFRESH_TOKEN = "someInvalidToken"
 
-      it("Returns an object containing false", () => { })
+      beforeAll(async () => {
+        // Setup mock
+        verify.mockReset()
+        verify.mockImplementation(() => {
+          throw new Error()
+        })
+        // Save invalid refresh token in database
+        await Token.saveRefreshToken(REFRESH_TOKEN)
+      })
+
+      afterAll(async () => {
+        await Token.deleteRefreshToken(REFRESH_TOKEN)
+      })
+
+      it("Returns an object with isValid set to false", async () => {
+        const data = await Token.verifyRefToken(REFRESH_TOKEN)
+        expect(data).toEqual({ isValid: false })
+      })
     })
   })
 })

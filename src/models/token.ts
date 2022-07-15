@@ -83,21 +83,14 @@ export default class Token {
     }
   }
 
-  static generateRefreshToken(authUser: AuthUser) {
+  static async generateRefreshToken(authUser: AuthUser) {
     const refreshToken = jwt.sign(
       authUser,
       process.env.REFRESH_TOKEN_SECRET as string, { expiresIn: REF_TOKEN_EXPIRY_DAYS + "d" }
     )
 
     // Add refresh token to the database
-    const queryStr = `
-      INSERT INTO refresh_tokens(token)
-      VALUES ($1);
-    `
-    const queryVals = [refreshToken]
-    Database.getClient().query(queryStr, queryVals, (err, data) => {
-      if (err) throw ({ unknownError: err, code: 500 } as BackendError)
-    })
+    await Token.saveRefreshToken(refreshToken)
 
     return {
       token: refreshToken,
@@ -105,10 +98,28 @@ export default class Token {
     }
   }
 
-  static generateTokenPair(authUser: AuthUser) {
+  // Saves given refresh token to the database
+  static saveRefreshToken(token: string) {
+    const queryStr = `
+      INSERT INTO refresh_tokens(token)
+      VALUES ($1);
+    `
+    const queryVals = [token]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
+        if (err) reject({ unknownError: err, code: 500 } as BackendError)
+        resolve()
+      })
+    })
+
+    return promise
+  }
+
+  static async generateTokenPair(authUser: AuthUser) {
     try {
       const accessToken = Token.generateAccessToken(authUser)
-      const refreshToken = Token.generateRefreshToken(authUser)
+      const refreshToken = await Token.generateRefreshToken(authUser)
       return { accessToken: accessToken, refreshToken: refreshToken }
     } catch (err) {
       throw err

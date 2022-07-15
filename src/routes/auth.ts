@@ -28,9 +28,9 @@ function ensureValidPostgresErr(err: unknown): err is PostgresErr {
 
 // Sends an access and refresh token pair via the response, both in the body (for mobile app frontends)
 // and as a cookie using the Set-Cookie header (for browser frontends)
-function sendTokens(res: Response, userId: string, redirectAddr?: string) {
+async function sendTokens(res: Response, userId: string, redirectAddr?: string) {
   const authUser: AuthUser = { id: userId }
-  const tokens = Token.generateTokenPair(authUser)
+  const tokens = await Token.generateTokenPair(authUser)
 
   // We will send the tokens both in the body and set as a http-only cookie
   // Tokens set as a cookie will be used by browser frontends
@@ -57,7 +57,7 @@ router.post("/users", async (req, res) => {
     const passHash: string = await bcrypt.hash(req.body.password, 10)
     const user = await User.create(req.body.username, passHash)
     // Send tokens to frontend
-    sendTokens(res, user.id)
+    await sendTokens(res, user.id)
   } catch (err) {
     const castError = err as BackendError
 
@@ -87,8 +87,7 @@ const incorrectUserOrPassStr = "Username or password is incorrect"
 router.post("/users/login", async (req, res) => {
   try {
     // Get the user
-    const users = await User.where("username", req.body.username)
-    const user = users[0]
+    const user = await User.where("username", req.body.username)
 
     // Ensure that this user is not a third party auth user
     if (!user.password) return sendErrorResponse(res, {
@@ -100,7 +99,7 @@ router.post("/users/login", async (req, res) => {
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
       // Both as a cookie and in the body
-      sendTokens(res, user.id)
+      await sendTokens(res, user.id)
     } else {
       // Incorrect credentials
       sendErrorResponse(res, {
@@ -139,7 +138,7 @@ router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, re
       // Remove old refresh token
       await Token.deleteRefreshToken(refreshToken)
       // Generate new refresh & access pair and send
-      sendTokens(res, data.user.id)
+      await sendTokens(res, data.user.id)
     } else {
       // Refresh token is invalid
       sendErrorResponse(res, { simpleError: "Invalid refresh token", code: 403 } as BackendError)
@@ -260,8 +259,8 @@ async function handleOpenIdCallback(req: Request, res: Response, clientType: Aut
     // Otherwise get the id of the existing user
     const user = await User.getThirdPartyUserOrCreate(clientType, claims.sub, claims.email)
     // Openid authentication successful. Send tokens
-    if (clientType === "facebook") sendTokens(res, user.id)
-    else sendTokens(res, user.id, `${process.env.FRONTEND_SERVER_ADDR}/signin/google`)
+    if (clientType === "facebook") await sendTokens(res, user.id)
+    else await sendTokens(res, user.id, `${process.env.FRONTEND_SERVER_ADDR}/signin/google`)
   } catch (err) {
     throw err
   }
