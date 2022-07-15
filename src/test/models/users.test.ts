@@ -326,3 +326,79 @@ describe("createThirdPartyAuthEntry", () => {
     })
   })
 })
+
+describe("getThirdPartyUserOrCreate", () => {
+  describe("When the given parameters are valid", () => {
+    function itBehavesLikeValidUserCreate(username: string, provider: AuthService, providerId: string) {
+      it("Creates or finds the user in the database and returns it", async () => {
+        const user = await User.getThirdPartyUserOrCreate(provider, providerId, username)
+        expect(user.id).toBeTruthy()
+        expect(user.username).toBe(username)
+  
+        // Ensure a third party entry exists
+        const entry = await User.getThirdPartyAuthEntry(provider, providerId)
+        expect(entry.provider).toBe(provider)
+        expect(entry.provider_user_id).toBe(providerId)
+        expect(entry.user_id).toBe(user.id)
+      })
+    }
+
+    const USERNAME = "testThirdParty"
+    const PROVIDER = "facebook"
+    const PROVIDER_ID = "someID"
+
+    describe("When the user already exists", () => {
+      // Create test user
+      beforeAll(async () => {
+        const user = await User.create(USERNAME)
+        await User.createThirdPartyAuthEntry(PROVIDER, PROVIDER_ID, user.id)
+      })
+  
+      // Delete test user
+      afterAll(async () => {
+        await User.deleteThirdPartyAuthEntry(PROVIDER, PROVIDER_ID)
+        await User.delete("username", USERNAME)
+      })
+  
+      itBehavesLikeValidUserCreate(USERNAME, PROVIDER, PROVIDER_ID)
+    })
+  
+    describe("When the user does not exist", () => {
+      // Remove test users
+      afterAll(async () => {
+        await User.deleteThirdPartyAuthEntry(PROVIDER, PROVIDER_ID)
+        await User.delete("username", USERNAME)
+      })
+
+      itBehavesLikeValidUserCreate(USERNAME, PROVIDER, PROVIDER_ID)
+    })
+  })
+
+  describe("When the given parameters are invalid", () => {
+    describe("When the username already exists, but does not have a third party auth entry", () => {
+      const USERNAME = "test000"
+
+      // Create test user
+      beforeAll(async () => {
+        await User.create(USERNAME)
+      })
+
+      // Delete test user
+      afterAll(async () => {
+        await User.delete("username", USERNAME)
+      })
+
+      it("Throws an error with code 500", async () => {
+        let user: User | undefined = undefined
+        try {
+          user = await User.getThirdPartyUserOrCreate("facebook", "noneExistentId", USERNAME)
+        } catch (err) {
+          const castErr = err as BackendError
+          expect("unknownError" in castErr).toBe(true)
+          expect(castErr.code).toBe(500)
+        }
+        expect(user).toBeUndefined()
+      })
+    })
+  })
+})
