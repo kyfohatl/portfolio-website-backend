@@ -223,3 +223,27 @@ describe("generateTokenPair", () => {
     })
   })
 })
+
+describe("deleteRefreshToken", () => {
+  const REFRESH_TOKEN = "someRandomToken234"
+
+  describe("When given a token that exists in the database", () => {
+    // Save test token
+    beforeAll(async () => {
+      await Token.saveRefreshToken(REFRESH_TOKEN)
+    })
+
+    it("Deletes the given token", async () => {
+      // Delete token
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+      // Enure that it has been deleted
+      expect(await Token.doesTokenExist(REFRESH_TOKEN)).toBe(false)
+    })
+  })
+
+  describe("When given a token that does not exist in the database", () => {
+    it("Does nothing, and will not throw an error", async () => {
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+    })
+  })
+})
