@@ -23,6 +23,12 @@ const verify = jest.mocked<(
   secretOrPublicKey: jwt.Secret
 ) => string | jwt.JwtPayload>(jwt.verify, true)
 
+const sign = jest.mocked<(
+  payload: string | object | Buffer,
+  secretOrPrivateKey: jwt.Secret,
+  options?: jwt.SignOptions | undefined
+) => string>(jwt.sign, true)
+
 describe("verifyAccToken", () => {
   describe("When given a valid token", () => {
     const SAMPLE_USER: AuthUser = { id: "id1234" }
@@ -184,6 +190,36 @@ describe("saveRefreshToken", () => {
 
       // Ensure an error was thrown
       expect(threwErr).toBe(true)
+    })
+  })
+})
+
+describe("generateTokenPair", () => {
+  describe("When given an AuthUser", () => {
+    const ACCESS_TOKEN = "someAccessToken1234"
+    const REFRESH_TOKEN = "someRefreshToken1234"
+
+    beforeAll(() => {
+      // Mock the jwt.sign function return values since it will be called twice
+      sign
+        .mockReturnValueOnce(ACCESS_TOKEN)
+        .mockReturnValueOnce(REFRESH_TOKEN)
+    })
+
+    // Delete test refresh token
+    afterAll(async () => {
+      await Token.deleteRefreshToken(REFRESH_TOKEN)
+    })
+
+    it("Generate and returns an access and refresh token pair and saves the refresh token", async () => {
+      const tokens = await Token.generateTokenPair({ id: "SomeID" })
+      expect(tokens.accessToken.token).toBe(ACCESS_TOKEN)
+      expect(tokens.accessToken.expiresInSeconds).toBeDefined()
+      expect(tokens.refreshToken.token).toBe(REFRESH_TOKEN)
+      expect(tokens.refreshToken.expiresInSeconds).toBeDefined()
+
+      // Ensure that the refresh token has been saved to the database
+      expect(await Token.doesTokenExist(REFRESH_TOKEN)).toBe(true)
     })
   })
 })

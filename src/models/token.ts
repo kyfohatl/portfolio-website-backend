@@ -63,7 +63,7 @@ export default class Token {
     }
   }
 
-  // Returns true if the given token exists in the database and false otherwise
+  // Returns true if the given refresh token exists in the database and false otherwise
   static async doesTokenExist(token: string) {
     const queryStr = `
       SELECT EXISTS(
@@ -122,8 +122,6 @@ export default class Token {
 
     return promise
   }
-
-  // static async getRefreshToken()
 
   static async generateTokenPair(authUser: AuthUser) {
     try {
