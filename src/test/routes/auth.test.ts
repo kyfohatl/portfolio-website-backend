@@ -10,46 +10,69 @@ const generateTokenPairMock = jest.mocked(Token.generateTokenPair, true)
 jest.mock("../../lib/sendResponse")
 const sendSuccessResponseMock = jest.mocked(sendSuccessResponse, true)
 
-// Create mock express response object
-interface MockedResponse extends Response { }
-
-const a: MockedResponse = {} as Response
-
 describe("sendTokens", () => {
   // Mock an express Response object
-  const mockResponse = {...response} as Response
-  mockResponse.append = jest.fn()
+  const mockResponse = {
+    append: jest.fn(),
+    redirect: jest.fn()
+  }
+
+  const USER_ID = "someID"
 
   const TOKENS = {
     accessToken: { token: "someAccessToken", expiresInSeconds: 30 },
     refreshToken: { token: "someRefreshToken", expiresInSeconds: 30 }
   }
 
-  describe("When only given a response and a user id", () => {
-    const USER_ID = "someID"
+  function itBehavesLikeGenerateAndSendTokens() {
+    it("Generates access and refresh tokens", () => {
+      expect(generateTokenPairMock).toHaveBeenCalledWith({ id: USER_ID })
+    })
 
+    it("Sets access and refresh tokens as cookies on the response", () => {
+      expect(mockResponse.append).toHaveBeenCalledWith("Set-Cookie", [
+        `accessToken=${TOKENS.accessToken.token}; Max-age=${TOKENS.accessToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`,
+        `refreshToken=${TOKENS.refreshToken.token}; Max-age=${TOKENS.refreshToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`
+      ])
+    })
+  }
+
+  describe("When only given a response and a user id", () => {
     beforeAll(async () => {
       // Setup mocks
       sendSuccessResponseMock.mockReset()
       generateTokenPairMock.mockReset()
       generateTokenPairMock.mockResolvedValue(TOKENS)
 
-      await sendTokens(mockResponse, USER_ID)
+      // Call the function
+      await sendTokens(mockResponse as unknown as Response, USER_ID)
     })
 
-    it("Generates access and refresh tokens", () => {
-      expect(generateTokenPairMock).toHaveBeenCalledWith(USER_ID)
-    })
+    itBehavesLikeGenerateAndSendTokens()
 
-    it("Sends the access and refresh tokens via the response", () => {
-      expect(mockResponse.append).toHaveBeenCalledWith("Set-Cookie", [
-        `accessToken=${TOKENS.accessToken.token}; Max-age=${TOKENS.accessToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`,
-        `refreshToken=${TOKENS.refreshToken.token}; Max-age=${TOKENS.refreshToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`
-      ])
-
-      expect(sendSuccessResponse).toHaveBeenCalledWith(mockResponse, {tokens: TOKENS, userId: USER_ID})
+    it("Sends access and refresh tokens back via the response", () => {
+      expect(sendSuccessResponse).toHaveBeenCalledWith(mockResponse, { tokens: TOKENS, userId: USER_ID })
     })
   })
 
-  describe("When given a response, user id and a redirect url", () => {})
+  describe("When given a response, user id and a redirect url", () => {
+    const REDIRECT_URL = "http://someRedirectDomain.com/"
+
+    beforeAll(async () => {
+      // Setup mocks
+      generateTokenPairMock.mockReset()
+      generateTokenPairMock.mockResolvedValue(TOKENS)
+      mockResponse.append.mockReset()
+      mockResponse.redirect.mockReset()
+
+      // Call the function
+      await sendTokens(mockResponse as unknown as Response, USER_ID, REDIRECT_URL)
+    })
+
+    itBehavesLikeGenerateAndSendTokens()
+
+    it("Redirects to the given redirect url with the user id as a query parameter", () => {
+      expect(mockResponse.redirect).toHaveBeenCalledWith(REDIRECT_URL + `?userid=${USER_ID}`)
+    })
+  })
 })
