@@ -28,7 +28,7 @@ function ensureValidPostgresErr(err: unknown): err is PostgresErr {
 
 // Sends an access and refresh token pair via the response, both in the body (for mobile app frontends)
 // and as a cookie using the Set-Cookie header (for browser frontends)
-async function sendTokens(res: Response, userId: string, redirectAddr?: string) {
+export async function sendTokens(res: Response, userId: string, redirectAddr?: string) {
   const authUser: AuthUser = { id: userId }
   const tokens = await Token.generateTokenPair(authUser)
 
