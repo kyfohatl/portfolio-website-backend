@@ -5,13 +5,11 @@ if (!process.env.DOT_ENV_IS_RUNNING) {
   dotenv.config()
 }
 
-
 import express from "express"
 import cors from "cors"
 
 import { router as authRouter } from "./routes/auth"
 import { router as blogRouter } from "./routes/blog"
-import { router as testRouter } from "./test/routes/auth"
 import cookieParser from "cookie-parser"
 
 // Start up express
@@ -36,7 +34,5 @@ const users: User[] = []
 app.use("/auth", authRouter)
 // Blog routes
 app.use("/blog", blogRouter)
-// Test routes
-app.use("/test", testRouter)
 
 export default app
