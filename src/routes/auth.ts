@@ -50,11 +50,12 @@ export async function sendTokens(res: Response, userId: string, redirectAddr?: s
   }
 }
 
+export const SALT_ROUNDS = 10
+
 // Create a new user with the given username and password
 router.post("/users", async (req, res) => {
-
   try {
-    const passHash: string = await bcrypt.hash(req.body.password, 10)
+    const passHash: string = await bcrypt.hash(req.body.password, SALT_ROUNDS)
     const user = await User.create(req.body.username, passHash)
     // Send tokens to frontend
     await sendTokens(res, user.id)
