@@ -1,25 +1,28 @@
 import { Response } from "express"
-import { sendSuccessResponse } from "../../lib/sendResponse"
+import * as sendResponseModule from "../../lib/sendResponse"
 import Token from "../../models/token"
 import User from "../../models/user"
-import * as authModule from "../../routes/auth"
 import { sendTokens, SALT_ROUNDS } from "../../routes/auth"
 import request from "supertest"
-import bcrypt, { hash } from "bcrypt"
+import bcrypt from "bcrypt"
 import app from "../../expressApp"
+import { BackendError } from "../../custom"
 
 // Mock the Token model
 jest.mock("../../models/token")
 const generateTokenPairMock = jest.mocked(Token.generateTokenPair, true)
-// Mock the send response helper functions
-jest.mock("../../lib/sendResponse")
-const sendSuccessResponseMock = jest.mocked(sendSuccessResponse, true)
-
-// Mock the sendTokens function to allow isolated unit testing of routes
-async function sendTokensMockImplementation(res: Response, userId: string, redirectAddr?: string) { }
-const sendTokensMock = jest.spyOn(authModule, "sendTokens").mockImplementation(sendTokensMockImplementation)
 
 describe("sendTokens", () => {
+  // Create a mock of the sendSuccessResponse function
+  const sendSuccessResponseMock = jest.spyOn(sendResponseModule, "sendSuccessResponse").mockImplementation(
+    jest.fn()
+  )
+
+  // Restore sendSuccessResponse function for other tests
+  afterAll(() => {
+    sendSuccessResponseMock.mockRestore()
+  })
+
   // Mock an express Response object
   const mockResponse = {
     append: jest.fn(),
@@ -46,16 +49,6 @@ describe("sendTokens", () => {
     })
   }
 
-  // Restore the function implementation so it can be tested
-  beforeAll(() => {
-    sendTokensMock.mockRestore()
-  })
-
-  // Brin back the mock for other tests
-  afterAll(() => {
-    sendTokensMock.mockImplementation(sendTokensMockImplementation)
-  })
-
   describe("When only given a response and a user id", () => {
     beforeAll(async () => {
       // Setup mocks
@@ -70,7 +63,7 @@ describe("sendTokens", () => {
     itBehavesLikeGenerateAndSendTokens()
 
     it("Sends access and refresh tokens back via the response", () => {
-      expect(sendSuccessResponse).toHaveBeenCalledWith(mockResponse, { tokens: TOKENS, userId: USER_ID })
+      expect(sendSuccessResponseMock).toHaveBeenCalledWith(mockResponse, { tokens: TOKENS, userId: USER_ID })
     })
   })
 
@@ -106,12 +99,17 @@ const hashMock = jest.mocked<
 jest.mock("../../models/user")
 const createUserMock = jest.mocked(User.create, true)
 
+const ROUTE_TOKENS = {
+  accessToken: { token: "routeAccessToken456", expiresInSeconds: 40 },
+  refreshToken: { token: "routeRefreshToken456", expiresInSeconds: 40 }
+}
+
 describe("POST /users", () => {
   const HASHED_PASS = "someHashedPassword123"
   const USER_ID = "1234"
   const USERNAME = "someUsername"
   const PASSWORD = "somePassword"
-  const USER = new User(USER_ID, USERNAME, PASSWORD)
+  const USER = { id: USER_ID, username: USERNAME, password: PASSWORD }
 
   beforeAll(() => {
     hashMock.mockReset()
@@ -119,19 +117,43 @@ describe("POST /users", () => {
 
     hashMock.mockResolvedValue(HASHED_PASS)
     createUserMock.mockResolvedValue(USER)
+    generateTokenPairMock.mockResolvedValue(ROUTE_TOKENS)
   })
 
   describe("When given a valid username and password", () => {
+    let response: request.Response
     beforeAll(async () => {
-      await request(app).post("/auth/users").send({ username: USERNAME, password: PASSWORD })
+      response = await request(app).post("/auth/users").send({ username: USERNAME, password: PASSWORD })
     })
 
-    it("Hashes the given password", async () => {
+    it("Hashes the given password", () => {
       expect(hashMock).toHaveBeenCalledWith(PASSWORD, SALT_ROUNDS)
+    })
+
+    it("Creates a new user using the given user information", () => {
+      expect(createUserMock).toHaveBeenCalledWith(USERNAME, HASHED_PASS)
+    })
+
+    it("Sends generated tokens in the body of the response", () => {
+      expect(response.body.success.tokens).toEqual(ROUTE_TOKENS)
+    })
+
+    it("Sends the id of the created user in the response body", () => {
+      expect(response.body.success.userId).toBe(USER_ID)
+    })
+
+    it("Send generated tokens as cookies", () => {
+      expect(response.headers['set-cookie']).toEqual([
+        `accessToken=${ROUTE_TOKENS.accessToken.token}; Max-age=${ROUTE_TOKENS.accessToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`,
+        `refreshToken=${ROUTE_TOKENS.refreshToken.token}; Max-age=${ROUTE_TOKENS.refreshToken.expiresInSeconds}; HttpOnly; Path=/; SameSite=None; Secure`
+      ])
     })
   })
 
-  describe("When username and password are missing from the request", () => { })
-
-  describe("When given the username of an existing user", () => { })
+  describe("When username and password are missing from the request", () => {
+    it("Returns an error object with code 400", async () => {
+      const response = await request(app).post("/auth/users").send({})
+      expect(response.body).toEqual({ simpleError: "Username or password missing", code: 400 } as BackendError)
+    })
+  })
 })

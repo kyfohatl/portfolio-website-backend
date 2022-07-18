@@ -54,6 +54,10 @@ export const SALT_ROUNDS = 10
 
 // Create a new user with the given username and password
 router.post("/users", async (req, res) => {
+  // Ensure a username and password are present
+  if (!(req.body.username && req.body.password))
+    return sendErrorResponse(res, { simpleError: "Username or password missing", code: 400 })
+
   try {
     const passHash: string = await bcrypt.hash(req.body.password, SALT_ROUNDS)
     const user = await User.create(req.body.username, passHash)
