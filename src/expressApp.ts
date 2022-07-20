@@ -11,10 +11,12 @@ import cors from "cors"
 import { router as authRouter } from "./routes/auth"
 import { router as blogRouter } from "./routes/blog"
 import cookieParser from "cookie-parser"
+import bodyParser from "body-parser"
 
 // Start up express
 const app = express()
 app.use(express.json())
+app.use(bodyParser.urlencoded({ extended: false }))
 app.use(cookieParser())
 // Setup cors
 app.use(cors({

@@ -9,22 +9,11 @@ import User from "../models/user"
 import Token from "../models/token"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { generators } from "openid-client"
-import bodyParser from "body-parser"
 import { expressStorage } from "../lib/storage"
 import { FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeAuthClients } from "../middleware/auth"
+import { ensureValidPostgresErr, hasMessage, isBackEndError } from "../lib/types/error"
 
 export const router = express.Router()
-router.use(express.json())
-router.use(bodyParser.urlencoded({ extended: false }))
-
-interface PostgresErr {
-  code: string
-}
-
-// Returns true if the given error is a valid postgres error and false otherwise
-function ensureValidPostgresErr(err: unknown): err is PostgresErr {
-  return (!!err && typeof err === "object" && "code" in err && typeof (err as PostgresErr).code === "string")
-}
 
 // Sends an access and refresh token pair via the response, both in the body (for mobile app frontends)
 // and as a cookie using the Set-Cookie header (for browser frontends)
@@ -90,6 +79,9 @@ const incorrectUserOrPassStr = "Username or password is incorrect"
 // Login the given user with the given username and password, if correct
 // Sends back jwt acc and refresh tokens both as cookies and in the response body
 router.post("/users/login", async (req, res) => {
+  if (!("username" in req.body))
+    return sendErrorResponse(res, { simpleError: "A valid username is required!", code: 400 } as BackendError)
+
   try {
     // Get the user
     const user = await User.where("username", req.body.username)
@@ -113,19 +105,7 @@ router.post("/users/login", async (req, res) => {
       } as BackendError)
     }
   } catch (err) {
-    const castError = err as BackendError
-    if ("unknownError" in castError) {
-      sendErrorResponse(res, castError)
-    } else {
-      if ("simpleError" in castError) {
-        sendErrorResponse(res, {
-          complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
-          code: castError.code
-        } as BackendError)
-      } else {
-        res.status(500).json(err)
-      }
-    }
+    sendErrorResponse(res, err)
   }
 })
 
