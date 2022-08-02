@@ -270,3 +270,64 @@ describe("POST /users/login", () => {
     })
   })
 })
+
+const verifyRefTokenMock = jest.mocked(Token.verifyRefToken, true)
+const deleteRefreshTokenMock = jest.mocked(Token.deleteRefreshToken, true)
+
+describe("POST /token", () => {
+  const ROUTE = "/auth/token"
+  const REFRESH_TOKEN = "someFakeRefreshToken"
+
+  describe("When a valid refresh token is sent as a cookie", () => {
+    const USER_ID = "someFakeId"
+    const responseContainer = new Updatable<request.Response>()
+
+    beforeAll(async () => {
+      verifyRefTokenMock.mockReset()
+      deleteRefreshTokenMock.mockReset()
+
+      verifyRefTokenMock.mockResolvedValue({ isValid: true, user: { id: USER_ID } })
+      deleteRefreshTokenMock.mockResolvedValue()
+
+      // Send the request
+      responseContainer.update(await request(app).post(ROUTE).set("Cookie", [`refreshToken=${REFRESH_TOKEN}`]))
+    })
+
+    it("Ensures that the given token is valid", () => {
+      expect(verifyRefTokenMock).toHaveBeenCalledWith(REFRESH_TOKEN)
+    })
+
+    it("Deletes the given refresh token from the database", () => {
+      expect(deleteRefreshTokenMock).toHaveBeenCalledWith(REFRESH_TOKEN)
+    })
+
+    itBehavesLikeGenerateAndSendTokens(responseContainer, USER_ID)
+  })
+
+  describe("When an invalid refresh token is sent as a cookie", () => {
+    const responseContainer = new Updatable<request.Response>()
+
+    beforeAll(async () => {
+      verifyRefTokenMock.mockReset()
+      verifyRefTokenMock.mockResolvedValue({ isValid: false })
+
+      // Send request
+      responseContainer.update(await request(app).post(ROUTE).set("Cookie", [`refreshToken=${REFRESH_TOKEN}`]))
+    })
+
+    it("Attempts to verify the given refresh token", () => {
+      expect(verifyRefTokenMock).toHaveBeenCalledWith(REFRESH_TOKEN)
+    })
+
+    it("Sends an error response with code 403", () => {
+      expect(responseContainer.getContent().body).toEqual({ simpleError: "Invalid refresh token", code: 403 })
+    })
+  })
+
+  describe("When no refresh token is sent in the cookies", () => {
+    it("Sends an error response with code 401", async () => {
+      const response = await request(app).post(ROUTE)
+      expect(response.body).toEqual({ simpleError: "No refresh token given!", code: 401 })
+    })
+  })
+})

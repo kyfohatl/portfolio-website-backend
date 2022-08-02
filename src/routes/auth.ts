@@ -11,7 +11,7 @@ import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { generators } from "openid-client"
 import { expressStorage } from "../lib/storage"
 import { FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeAuthClients } from "../middleware/auth"
-import { ensureValidPostgresErr, hasMessage, isBackEndError } from "../lib/types/error"
+import { ensureValidPostgresErr } from "../lib/types/error"
 
 export const router = express.Router()
 
@@ -113,7 +113,7 @@ router.post("/users/login", async (req, res) => {
 router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, res) => {
   // Ensure a refresh token is present in cookies
   const refreshToken = req.cookies.refreshToken
-  if (!refreshToken) return res.sendStatus(401)
+  if (!refreshToken) return sendErrorResponse(res, { simpleError: "No refresh token given!", code: 401 } as BackendError)
 
   try {
     // Check for the validity of the given refresh token
