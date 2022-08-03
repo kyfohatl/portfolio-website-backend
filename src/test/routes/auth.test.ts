@@ -2,12 +2,15 @@ import { Response } from "express"
 import * as sendResponseModule from "../../lib/sendResponse"
 import Token from "../../models/token"
 import User, { UserSearchParam } from "../../models/user"
-import { sendTokens, SALT_ROUNDS } from "../../routes/auth"
+import { sendTokens, SALT_ROUNDS, CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR } from "../../routes/auth"
 import request from "supertest"
 import bcrypt from "bcrypt"
 import app from "../../expressApp"
 import { BackendError } from "../../custom"
 import Updatable from "../../lib/Updatable"
+import { initializeAuthClients } from "../../middleware/auth"
+import { expressStorage } from "../../lib/storage"
+import { BaseClient, generators } from "openid-client"
 
 // Mock the Token model
 jest.mock("../../models/token")
@@ -329,5 +332,144 @@ describe("POST /token", () => {
       const response = await request(app).post(ROUTE)
       expect(response.body).toEqual({ simpleError: "No refresh token given!", code: 401 })
     })
+  })
+})
+
+describe("DELETE /auth/users/logout", () => {
+  const ROUTE = "/auth/users/logout"
+  const REFRESH_TOKEN = "someFakeRefreshToken"
+
+  describe("When a valid refresh token is given", () => {
+    const responseContainer = new Updatable<request.Response>()
+
+    function itBehavesLikeValidToken() {
+      it("Attempts to delete the given token from database", () => {
+        expect(deleteRefreshTokenMock).toHaveBeenCalledWith(REFRESH_TOKEN)
+      })
+
+      it("Sends back a response to clear cookies with status code 204", () => {
+        expect(responseContainer.getContent().statusCode).toBe(204)
+        expect(responseContainer.getContent().headers['set-cookie']).toEqual([
+          CLEAR_ACC_TOKEN_COOKIE_STR,
+          CLEAR_REF_TOKEN_COOKIE_STR
+        ])
+      })
+    }
+
+    describe("When the token is sent as a cookie", () => {
+      beforeAll(async () => {
+        deleteRefreshTokenMock.mockReset()
+        deleteRefreshTokenMock.mockResolvedValue()
+
+        // Send request
+        responseContainer.update(await request(app).delete(ROUTE).set("Cookie", [`refreshToken=${REFRESH_TOKEN}`]))
+      })
+
+      itBehavesLikeValidToken()
+    })
+
+    describe("When the token is sent in the request body", () => {
+      beforeAll(async () => {
+        deleteRefreshTokenMock.mockReset()
+        deleteRefreshTokenMock.mockResolvedValue()
+
+        // send request
+        responseContainer.update(await request(app).delete(ROUTE).send({ token: REFRESH_TOKEN }))
+      })
+
+      itBehavesLikeValidToken()
+    })
+  })
+
+  describe("When no refresh token is given", () => {
+    it("Responds with an error object with code 401", async () => {
+      const response = await request(app).delete(ROUTE)
+      expect(response.body).toEqual({ simpleError: "No refresh token given!", code: 401 })
+    })
+  })
+})
+
+// Mock the initializeClient middleware
+jest.mock("../../middleware/auth")
+const initializeAuthClientsMock = jest.mocked(initializeAuthClients, true)
+
+// Mock the openid-client module
+jest.mock("openid-client")
+const generatorsMock = jest.mocked(generators, true)
+// Now setup a mock implementation function for reuse later
+const NONCE = "someRandomNonce"
+function nonceMockImplementation(bytes?: number) {
+  return NONCE
+}
+
+
+describe("GET /auth/login/:authService", () => {
+  const ROUTE_BASE = "/auth/login/"
+
+  describe("GET /auth/login/invalidRoute", () => {
+    const ROUTE = ROUTE_BASE + "invalidRoute"
+  })
+
+  // Returns true if the nonce cookie is present in the response headers, and false otherwise
+  function hasNonceCookie(response: request.Response) {
+    if (!("set-cookie" in response.headers)) return false
+
+    const cookies = response.headers["set-cookie"] as string[]
+    for (const cookie of cookies) {
+      if (cookie.includes(`nonce=${NONCE}`)) return true
+    }
+
+    return false
+  }
+
+  describe("GET /auth/login/google", () => {
+    const ROUTE = ROUTE_BASE + "google"
+    const AUTH_URL_RETURN = "someString"
+
+    const authorizationUrlMock = jest.fn((scope?: string, response_mode?: string, nonce?: string) => AUTH_URL_RETURN)
+    const responseContainer = new Updatable<request.Response>()
+    beforeAll(async () => {
+      initializeAuthClientsMock.mockReset()
+      // Create a mock implementation of the middleware function called before the route
+      initializeAuthClientsMock.mockImplementation(async (req, res, next) => {
+        // Create a fake google base client
+        expressStorage.googleAuthClient = { authorizationUrl: authorizationUrlMock } as unknown as BaseClient
+        // Call the route function
+        next()
+      })
+
+      generatorsMock.nonce.mockReset()
+      // Create a mock implementation of the nonce function
+      generatorsMock.nonce.mockImplementation(nonceMockImplementation)
+
+      // Send the request
+      responseContainer.update(await request(app).get(ROUTE))
+    })
+
+    it("Uses the generator nonce function to generate a nonce", () => {
+      expect(generatorsMock.nonce).toHaveBeenCalledTimes(1)
+    })
+
+    it("Builds a redirect url using the google auth client in the express storage object", () => {
+      expect(authorizationUrlMock).toHaveBeenCalledWith({
+        scope: "openid email profile",
+        response_mode: "form_post",
+        nonce: NONCE
+      })
+    })
+
+    it("Sets the nonce as a cookie on the client", () => {
+      expect(hasNonceCookie(responseContainer.getContent())).toBe(true)
+    })
+
+    it("Redirects the user to the url built by the authorizationUrl method of the google base client", () => {
+      expect(responseContainer.getContent().redirect).toBe(true)
+      expect(responseContainer.getContent().status).toBe(302)
+      expect(responseContainer.getContent().headers.location).toBe(AUTH_URL_RETURN)
+    })
+  })
+
+  describe("GET /auth/login/facebook", () => {
+    const ROUTE = ROUTE_BASE + "facebook"
   })
 })

@@ -134,6 +134,9 @@ router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, re
   }
 })
 
+export const CLEAR_ACC_TOKEN_COOKIE_STR = "accessToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
+export const CLEAR_REF_TOKEN_COOKIE_STR = "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
+
 // Logout user
 router.delete("/users/logout", async (req, res) => {
   let refreshToken: string | undefined = undefined
@@ -145,15 +148,17 @@ router.delete("/users/logout", async (req, res) => {
   }
 
   // Ensure a token is present
-  if (!refreshToken) return res.sendStatus(401)
+  if (!refreshToken) {
+    return sendErrorResponse(res, { simpleError: "No refresh token given!", code: 401 } as BackendResponse)
+  }
 
   try {
     await Token.deleteRefreshToken(refreshToken)
-    // Successfully deleted given refresh token
+    // Successfully deleted given refresh token, or given token does not exist in database
     // Clear cookies from frontend if they exist
     res.append("Set-Cookie", [
-      "accessToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure",
-      "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
+      CLEAR_ACC_TOKEN_COOKIE_STR,
+      CLEAR_REF_TOKEN_COOKIE_STR
     ])
     // Send response
     res.sendStatus(204)

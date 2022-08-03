@@ -5,6 +5,7 @@ import request from "supertest"
 import app from "../../expressApp"
 import Updatable from "../../lib/Updatable"
 import Token from "../../models/token"
+import { CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR } from "../../routes/auth"
 
 // Run setup
 beforeAll(async () => {
@@ -68,5 +69,67 @@ describe("POST /users/login", () => {
       expect(responseContainer.getContent().body).toHaveProperty("unknownError")
       expect(responseContainer.getContent().body.code).toBe(500)
     })
+  })
+})
+
+describe("DELETE /auth/users/logout", () => {
+  const ROUTE = "/auth/users/logout"
+  const USERNAME = "someUsername"
+  const tokenContainer = new Updatable<string>()
+
+  function itBehavesLikeClearTokens(responseContainer: Updatable<request.Response>) {
+    it("Attempts to clear existing token cookies from the frontend", () => {
+      expect(responseContainer.getContent().headers["set-cookie"]).toEqual([
+        CLEAR_ACC_TOKEN_COOKIE_STR,
+        CLEAR_REF_TOKEN_COOKIE_STR
+      ])
+    })
+
+    it("Responds with status code 204", () => {
+      expect(responseContainer.getContent().statusCode).toBe(204)
+    })
+  }
+
+  // Run setup
+  beforeAll(async () => {
+    // Create a test user
+    const user = await User.create(USERNAME, "somePassword")
+    // Create a test refresh token
+    tokenContainer.update((await Token.generateRefreshToken({ id: user.id })).token)
+  })
+
+  // Run teardown
+  afterAll(async () => {
+    // Delete test user
+    await User.delete("username", USERNAME)
+  })
+
+  describe("When a valid refresh token is given", () => {
+    const responseContainer = new Updatable<request.Response>()
+    beforeAll(async () => {
+      // Send the request
+      responseContainer.update(
+        await request(app).delete(ROUTE).set("Cookie", [`refreshToken=${tokenContainer.getContent()}`])
+      )
+    })
+
+    it("Deletes given refresh token from the database", async () => {
+      const tokenExists = await Token.doesTokenExist(tokenContainer.getContent())
+      expect(tokenExists).toBe(false)
+    })
+
+    itBehavesLikeClearTokens(responseContainer)
+  })
+
+  describe("When an invalid refresh token is given", () => {
+    const responseContainer = new Updatable<request.Response>()
+    beforeAll(async () => {
+      // Send request
+      responseContainer.update(
+        await request(app).delete(ROUTE).set("Cookie", `refreshToken=${tokenContainer.getContent()}`)
+      )
+    })
+
+    itBehavesLikeClearTokens(responseContainer)
   })
 })
