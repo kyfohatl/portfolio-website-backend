@@ -335,7 +335,7 @@ describe("POST /token", () => {
   })
 })
 
-describe("DELETE /auth/users/logout", () => {
+describe("DELETE /users/logout", () => {
   const ROUTE = "/auth/users/logout"
   const REFRESH_TOKEN = "someFakeRefreshToken"
 
@@ -403,7 +403,7 @@ function nonceMockImplementation(bytes?: number) {
 }
 
 
-describe("GET /auth/login/:authService", () => {
+describe("GET /login/:authService", () => {
   const ROUTE_BASE = "/auth/login/"
 
   describe("GET /auth/login/invalidRoute", () => {
@@ -422,7 +422,7 @@ describe("GET /auth/login/:authService", () => {
     return false
   }
 
-  describe("GET /auth/login/google", () => {
+  describe("GET /login/google", () => {
     const ROUTE = ROUTE_BASE + "google"
     const AUTH_URL_RETURN = "someString"
 
@@ -469,7 +469,7 @@ describe("GET /auth/login/:authService", () => {
     })
   })
 
-  describe("GET /auth/login/facebook", () => {
+  describe("GET /login/facebook", () => {
     const ROUTE = ROUTE_BASE + "facebook"
   })
 })
