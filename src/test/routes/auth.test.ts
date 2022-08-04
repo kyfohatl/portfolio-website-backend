@@ -1,4 +1,4 @@
-import { Response } from "express"
+import { NextFunction, Request, Response } from "express"
 import * as sendResponseModule from "../../lib/sendResponse"
 import Token from "../../models/token"
 import User, { UserSearchParam } from "../../models/user"
@@ -6,11 +6,12 @@ import { sendTokens, SALT_ROUNDS, CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_CO
 import request from "supertest"
 import bcrypt from "bcrypt"
 import app from "../../expressApp"
-import { BackendError } from "../../custom"
+import { AuthService, BackendError } from "../../custom"
 import Updatable from "../../lib/Updatable"
 import { initializeAuthClients } from "../../middleware/auth"
 import { expressStorage } from "../../lib/storage"
 import { BaseClient, generators } from "openid-client"
+import { resetMockAndSetImplementation } from "../test_helpers/jestHelpers"
 
 // Mock the Token model
 jest.mock("../../models/token")
@@ -389,6 +390,9 @@ describe("DELETE /users/logout", () => {
   })
 })
 
+// Mock the base client authorizationUrl method
+const authorizationUrlMock = jest.fn()
+
 // Mock the initializeClient middleware
 jest.mock("../../middleware/auth")
 const initializeAuthClientsMock = jest.mocked(initializeAuthClients, true)
@@ -396,19 +400,10 @@ const initializeAuthClientsMock = jest.mocked(initializeAuthClients, true)
 // Mock the openid-client module
 jest.mock("openid-client")
 const generatorsMock = jest.mocked(generators, true)
-// Now setup a mock implementation function for reuse later
-const NONCE = "someRandomNonce"
-function nonceMockImplementation(bytes?: number) {
-  return NONCE
-}
 
 
 describe("GET /login/:authService", () => {
   const ROUTE_BASE = "/auth/login/"
-
-  describe("GET /auth/login/invalidRoute", () => {
-    const ROUTE = ROUTE_BASE + "invalidRoute"
-  })
 
   // Returns true if the nonce cookie is present in the response headers, and false otherwise
   function hasNonceCookie(response: request.Response) {
@@ -422,38 +417,44 @@ describe("GET /login/:authService", () => {
     return false
   }
 
-  describe("GET /login/google", () => {
-    const ROUTE = ROUTE_BASE + "google"
-    const AUTH_URL_RETURN = "someString"
+  // Setup mocks
+  const AUTH_URL_RETURN = "someString"
+  // A mock implementation of the authorizationUrl method
+  function aUrlMockImplementation(scope?: string, response_mode?: string, nonce?: string) {
+    return AUTH_URL_RETURN
+  }
 
-    const authorizationUrlMock = jest.fn((scope?: string, response_mode?: string, nonce?: string) => AUTH_URL_RETURN)
-    const responseContainer = new Updatable<request.Response>()
-    beforeAll(async () => {
-      initializeAuthClientsMock.mockReset()
-      // Create a mock implementation of the middleware function called before the route
-      initializeAuthClientsMock.mockImplementation(async (req, res, next) => {
-        // Create a fake google base client
-        expressStorage.googleAuthClient = { authorizationUrl: authorizationUrlMock } as unknown as BaseClient
-        // Call the route function
-        next()
-      })
+  // Returns a mock implementation of the initializeAuthClient method for the given client type
+  function makeIacMockImplementation(type: AuthService) {
+    // Reset authorizationUrl mock and set mock implementation
+    resetMockAndSetImplementation(authorizationUrlMock, aUrlMockImplementation)
 
-      generatorsMock.nonce.mockReset()
-      // Create a mock implementation of the nonce function
-      generatorsMock.nonce.mockImplementation(nonceMockImplementation)
+    return async (req: Request, res: Response, next: NextFunction) => {
+      // Create a fake base client of the correct type
+      expressStorage[type + "AuthClient"] = { authorizationUrl: authorizationUrlMock } as unknown as BaseClient
+      // Call the route function
+      next()
+    }
+  }
 
-      // Send the request
-      responseContainer.update(await request(app).get(ROUTE))
-    })
+  // Mock implementation for the generators.nonce method
+  const NONCE = "someRandomNonce"
+  function nonceMockImplementation(bytes?: number) {
+    return NONCE
+  }
 
+  function itBehavesLikeGenerateUrlAndRedirect(
+    scope: string,
+    responseMode: string,
+    responseContainer: Updatable<request.Response>) {
     it("Uses the generator nonce function to generate a nonce", () => {
       expect(generatorsMock.nonce).toHaveBeenCalledTimes(1)
     })
 
     it("Builds a redirect url using the google auth client in the express storage object", () => {
       expect(authorizationUrlMock).toHaveBeenCalledWith({
-        scope: "openid email profile",
-        response_mode: "form_post",
+        scope: scope,
+        response_mode: responseMode,
         nonce: NONCE
       })
     })
@@ -467,9 +468,56 @@ describe("GET /login/:authService", () => {
       expect(responseContainer.getContent().status).toBe(302)
       expect(responseContainer.getContent().headers.location).toBe(AUTH_URL_RETURN)
     })
+  }
+
+  describe("GET /login/google", () => {
+    const ROUTE = ROUTE_BASE + "google"
+
+    const responseContainer = new Updatable<request.Response>()
+    beforeAll(async () => {
+      // Reset and setup a mock implementation of the middleware function called before the route
+      resetMockAndSetImplementation(initializeAuthClientsMock, makeIacMockImplementation("google"))
+      // Reset and setup a mock implementation of the generators.nonce method
+      resetMockAndSetImplementation(generatorsMock.nonce, nonceMockImplementation)
+
+      // Send the request
+      responseContainer.update(await request(app).get(ROUTE))
+    })
+
+    itBehavesLikeGenerateUrlAndRedirect("openid email profile", "form_post", responseContainer)
   })
 
   describe("GET /login/facebook", () => {
     const ROUTE = ROUTE_BASE + "facebook"
+
+    const responseContainer = new Updatable<request.Response>()
+    beforeAll(async () => {
+      // Reset and setup a mock implementation of the middleware function called before the route
+      resetMockAndSetImplementation(initializeAuthClientsMock, makeIacMockImplementation("facebook"))
+      // Reset and setup a mock implementation of the generators.nonce method
+      resetMockAndSetImplementation(generatorsMock.nonce, nonceMockImplementation)
+
+      // Send the request
+      responseContainer.update(await request(app).get(ROUTE))
+    })
+
+    itBehavesLikeGenerateUrlAndRedirect("openid email public_profile", "query", responseContainer)
+  })
+
+  describe("GET /auth/login/invalidRoute", () => {
+    const ROUTE = ROUTE_BASE + "invalidRoute"
+
+    beforeAll(() => {
+      // Reset and setup the initializeAuthClient mock
+      resetMockAndSetImplementation(
+        initializeAuthClientsMock,
+        async (req: Request, res: Response, next: NextFunction) => next()
+      )
+    })
+
+    it("Responds with and error object with code 400", async () => {
+      const response = await request(app).get(ROUTE)
+      expect(response.body).toEqual({ simpleError: "Invalid auth service!", code: 400 })
+    })
   })
 })
