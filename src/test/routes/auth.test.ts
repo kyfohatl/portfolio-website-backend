@@ -2,16 +2,16 @@ import { NextFunction, Request, Response } from "express"
 import * as sendResponseModule from "../../lib/sendResponse"
 import Token from "../../models/token"
 import User, { UserSearchParam } from "../../models/user"
-import { sendTokens, SALT_ROUNDS, CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR } from "../../routes/auth"
+import { sendTokens, SALT_ROUNDS, CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR, handleOpenIdCallback, GOOGLE_FRONTEND_REDIR_ADDR } from "../../routes/auth"
 import request from "supertest"
 import bcrypt from "bcrypt"
 import app from "../../expressApp"
-import { AuthService, BackendError } from "../../custom"
+import { AuthService, BackendError, BackendResponse } from "../../custom"
 import Updatable from "../../lib/Updatable"
-import { initializeAuthClients } from "../../middleware/auth"
+import { FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeAuthClients } from "../../middleware/auth"
 import { expressStorage } from "../../lib/storage"
-import { BaseClient, generators } from "openid-client"
-import { resetMockAndSetImplementation } from "../test_helpers/jestHelpers"
+import { BaseClient, CallbackExtras, CallbackParamsType, generators, OpenIDCallbackChecks, TokenSet } from "openid-client"
+import { resetMockAndSetImplementation, resetMockAndSetResolveValue } from "../test_helpers/jestHelpers"
 
 // Mock the Token model
 jest.mock("../../models/token")
@@ -518,6 +518,246 @@ describe("GET /login/:authService", () => {
     it("Responds with and error object with code 400", async () => {
       const response = await request(app).get(ROUTE)
       expect(response.body).toEqual({ simpleError: "Invalid auth service!", code: 400 })
+    })
+  })
+})
+
+const getThirdPartyUserOrCreateMock = jest.mocked(User.getThirdPartyUserOrCreate, true)
+
+describe("handleOpenIdCallback", () => {
+  const NONCE = "someNonce"
+  const CALLBACK_PARAMS_RETURN = {} as CallbackParamsType
+
+  describe("When given a valid request", () => {
+    // Setup constants
+    const SUB = "someSub"
+    const EMAIL = "someEmail"
+    const USER_ID = "someUserId"
+
+    const ACC_TOKEN = "someAccessToken"
+    const REF_TOKEN = "someRefreshToken"
+    const ACC_TOKEN_EXP = 15
+    const REF_TOKEN_EXP = 30
+
+    // Sets up most mocks required for a valid test
+    function setupMocks() {
+      // Mock request
+      const REQ = { cookies: { nonce: NONCE } } as Request
+      // Mock response
+      const RES = {
+        append: jest.fn((field: string, value?: string | string[]) => { return {} }),
+        redirect: jest.fn((url: string) => { }),
+        json: jest.fn((body?: any) => { return {} })
+      } as unknown as Response
+
+      // Mock tokenSet.claims method
+      const mockClaims = jest.fn(() => {
+        return { email: EMAIL, sub: SUB }
+      })
+
+      return { REQ, RES, mockClaims }
+    }
+
+    // Run beforeAll setup required for a valid test
+    async function runBeforeAllSetup(
+      type: AuthService,
+      mockClaims: jest.Mock<{ email: string, sub: string }, []>,
+      req: Request,
+      res: Response
+    ) {
+      // Setup expressStorage to contain all required properties
+      // Note that this mock needs to be setup in the beforeAll rather than in the describe block, because 
+      // expressStorage is a single object, and hence when jest executes all describe blocks before running tests, the 
+      // expressStorage object of one describe will override the one in the previous describe block
+      expressStorage[type + "AuthClient"] = {
+        callbackParams: jest.fn((input: Request) => {
+          return CALLBACK_PARAMS_RETURN
+        }),
+        callback: jest.fn(async (
+          redirectUri: string | undefined,
+          parameters: CallbackParamsType,
+          checks?: OpenIDCallbackChecks,
+          extras?: CallbackExtras) => {
+          return {
+            claims: mockClaims
+          } as unknown as TokenSet
+        })
+      } as unknown as BaseClient
+
+      // Setup the User.getThirdPartyUserOrCreate method mock
+      getThirdPartyUserOrCreateMock.mockReset()
+      getThirdPartyUserOrCreateMock.mockResolvedValue({ id: USER_ID, username: EMAIL })
+      // Setup the Token.generateTokenPair method mock 
+      generateTokenPairMock.mockReset()
+      generateTokenPairMock.mockResolvedValue({
+        accessToken: { token: ACC_TOKEN, expiresInSeconds: ACC_TOKEN_EXP },
+        refreshToken: { token: REF_TOKEN, expiresInSeconds: REF_TOKEN_EXP }
+      })
+
+      // Call the function
+      await handleOpenIdCallback(req, res, type)
+    }
+
+    function itBehavesLikeValidRequest(
+      type: AuthService,
+      callBackAddr: string,
+      req: Request,
+      res: Response,
+      mockClaims: jest.Mock<{ email: string, sub: string }, []>
+    ) {
+      it("Call the callBackParams method of the base client with the given request", () => {
+        expect(expressStorage[type + "AuthClient"].callbackParams).toHaveBeenCalledWith(req)
+      })
+
+      it("Calls the callback method on the base client and gives it the required parameters", () => {
+        expect(expressStorage[type + "AuthClient"].callback).toHaveBeenCalledWith(
+          callBackAddr,
+          CALLBACK_PARAMS_RETURN,
+          { nonce: NONCE }
+        )
+      })
+
+      it("Calls the tokenSet claims method", () => {
+        expect(mockClaims).toHaveBeenCalledTimes(1)
+      })
+
+      it("Attempts to get or create a third party user with the information received from the tokenSet claims", () => {
+        expect(getThirdPartyUserOrCreateMock).toHaveBeenCalledWith(type, SUB, EMAIL)
+      })
+
+      it("Generates an access and refresh token pair", () => {
+        expect(generateTokenPairMock).toHaveBeenCalledWith({ id: USER_ID })
+      })
+
+      it("Sets the access and refresh tokens as cookies for the client", () => {
+        expect(res.append).toHaveBeenCalledWith("Set-Cookie", [
+          `accessToken=${ACC_TOKEN}; Max-age=${ACC_TOKEN_EXP}; HttpOnly; Path=/; SameSite=None; Secure`,
+          `refreshToken=${REF_TOKEN}; Max-age=${REF_TOKEN_EXP}; HttpOnly; Path=/; SameSite=None; Secure`
+        ])
+      })
+    }
+
+    describe("When google is the client type", () => {
+      const CLIENT_TYPE = "google"
+
+      // Setup most required mocks
+      const { REQ, RES, mockClaims } = setupMocks()
+
+      beforeAll(async () => {
+        // Setup expressStorage mock, reset other required mocks, and call the function
+        await runBeforeAllSetup(CLIENT_TYPE, mockClaims, REQ, RES)
+      })
+
+      itBehavesLikeValidRequest("google", GOOGLE_CALLBACK_ADDR, REQ, RES, mockClaims)
+
+      it("Redirects the user to the client to the google redirection address", () => {
+        expect(RES.redirect).toHaveBeenCalledWith(GOOGLE_FRONTEND_REDIR_ADDR + `?userid=${USER_ID}`)
+      })
+    })
+
+    describe("When facebook is the client type", () => {
+      const CLIENT_TYPE = "facebook"
+
+      // Setup most required mocks
+      const { REQ, RES, mockClaims } = setupMocks()
+
+      beforeAll(async () => {
+        // Setup expressStorage mock, reset other required mocks, and call the function
+        await runBeforeAllSetup(CLIENT_TYPE, mockClaims, REQ, RES)
+      })
+
+      itBehavesLikeValidRequest(CLIENT_TYPE, FACEBOOK_CALLBACK_ADDR, REQ, RES, mockClaims)
+
+      it("Sends a successful response with the tokens and user id", () => {
+        expect(RES.json).toHaveBeenCalledWith(
+          {
+            success: {
+              tokens: {
+                accessToken: { token: ACC_TOKEN, expiresInSeconds: ACC_TOKEN_EXP },
+                refreshToken: { token: REF_TOKEN, expiresInSeconds: REF_TOKEN_EXP }
+              },
+              userId: USER_ID
+            }
+          } as BackendResponse
+        )
+      })
+    })
+  })
+
+  describe("When given an invalid request", () => {
+    describe("When the nonce is not present in the request cookies", () => {
+      const REQ = { cookies: {} } as Request
+      const RES = {} as Response
+
+      it("Throws an error object with code 500", async () => {
+        let threwErr = true
+        try {
+          await handleOpenIdCallback(REQ, RES, "google")
+          threwErr = false
+        } catch (err) {
+          expect(err).toEqual({ simpleError: "Missing nonce!", code: 500 } as BackendError)
+        }
+        expect(threwErr).toBe(true)
+      })
+    })
+
+    describe("When the required client has not been initialized", () => {
+      const CLIENT_TYPE = "google"
+      const REQ = { cookies: { nonce: NONCE } } as Request
+      const RES = {} as Response
+
+      beforeAll(() => {
+        // Clear out the expressStorage googleAuthClient property if it exists, jst for this test
+        delete expressStorage[CLIENT_TYPE + "AuthClient"]
+      })
+
+      it("Throws an error object with code 500", async () => {
+        let threwErr = true
+        try {
+          await handleOpenIdCallback(REQ, RES, CLIENT_TYPE)
+          threwErr = false
+        } catch (err) {
+          expect(err).toEqual({ simpleError: "Client has not been initialized", code: 500 } as BackendError)
+        }
+        expect(threwErr).toBe(true)
+      })
+    })
+
+    describe("When the given third party client does not provide an email", () => {
+      const REQ = { cookies: { nonce: NONCE } } as Request
+      const RES = {} as Response
+      const CLIENT_TYPE = "facebook"
+
+      const mockClaims = jest.fn(() => { return { someRandom: "invalid" } })
+
+      beforeAll(() => {
+        // Setup the express storage base client
+        expressStorage[CLIENT_TYPE + "AuthClient"] = {
+          callbackParams: jest.fn((input: Request) => {
+            return CALLBACK_PARAMS_RETURN
+          }),
+          callback: jest.fn(async (
+            redirectUri: string | undefined,
+            parameters: CallbackParamsType,
+            checks?: OpenIDCallbackChecks,
+            extras?: CallbackExtras) => {
+            return {
+              claims: mockClaims
+            } as unknown as TokenSet
+          })
+        } as unknown as BaseClient
+      })
+
+      it("Throws an error with code 400", async () => {
+        let threwErr = true
+        try {
+          await handleOpenIdCallback(REQ, RES, CLIENT_TYPE)
+          threwErr = false
+        } catch (err) {
+          expect(err).toEqual({ simpleError: "Third party did not provide email!", code: 400 } as BackendError)
+        }
+        expect(threwErr).toBe(true)
+      })
     })
   })
 })

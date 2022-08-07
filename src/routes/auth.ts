@@ -209,9 +209,11 @@ router.get("/login/:authService", initializeAuthClients, async (req, res) => {
   res.redirect(url)
 })
 
+export const GOOGLE_FRONTEND_REDIR_ADDR = `${process.env.FRONTEND_SERVER_ADDR}/signin/google`
+
 // Handles the callback process for the given openid client authentication service type
 // Throws an error if unable to complete the process
-async function handleOpenIdCallback(req: Request, res: Response, clientType: AuthService) {
+export async function handleOpenIdCallback(req: Request, res: Response, clientType: AuthService) {
   const clientObjName = clientType + "AuthClient"
 
   // Ensure required information is present
@@ -250,7 +252,7 @@ async function handleOpenIdCallback(req: Request, res: Response, clientType: Aut
     const user = await User.getThirdPartyUserOrCreate(clientType, claims.sub, claims.email)
     // Openid authentication successful. Send tokens
     if (clientType === "facebook") await sendTokens(res, user.id)
-    else await sendTokens(res, user.id, `${process.env.FRONTEND_SERVER_ADDR}/signin/google`)
+    else await sendTokens(res, user.id, GOOGLE_FRONTEND_REDIR_ADDR)
   } catch (err) {
     throw err
   }
