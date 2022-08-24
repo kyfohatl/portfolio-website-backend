@@ -1,19 +1,10 @@
-import express, { Request } from "express"
-import { Query } from 'express-serve-static-core'
-import { BackendError } from "../custom"
+import express from "express"
+import { BackendError, TypedRequestBody, TypedRequestQuery } from "../custom"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { AuthenticatedResponse, authenticateToken } from "../middleware/auth"
 import Blog from "../models/blog"
 
 export const router = express.Router()
-
-interface TypedRequestBody<T> extends Request {
-  body: T
-}
-
-interface TypedRequestQuery<T extends Query> extends Request {
-  query: T
-}
 
 // Respond with a list of the most recently created blogs, in order, on the given page number
 router.get("/", async (req: TypedRequestQuery<{ page: string, limit: string }>, res) => {

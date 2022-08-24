@@ -10,6 +10,7 @@ import cors from "cors"
 
 import { router as authRouter } from "./routes/auth"
 import { router as blogRouter } from "./routes/blog"
+import { router as testAuthRouter } from "./test/test_routes/auth"
 import cookieParser from "cookie-parser"
 import bodyParser from "body-parser"
 
@@ -20,7 +21,7 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.use(cookieParser())
 // Setup cors
 app.use(cors({
-  origin: [process.env.FRONTEND_SERVER_ADDR + "", process.env.BACKEND_SERVER_ADDR + ""],
+  origin: [process.env.FRONTEND_SERVER_ADDR + "", process.env.BACKEND_SERVER_ADDR + "", "http://localhost"],
   credentials: true
 }))
 
@@ -36,5 +37,14 @@ const users: User[] = []
 app.use("/auth", authRouter)
 // Blog routes
 app.use("/blog", blogRouter)
+
+export function isRunningInTestEnv() {
+  return process.argv.includes("-t")
+}
+
+// If running in a test environment, also add test routes
+if (isRunningInTestEnv()) {
+  app.use("/test/auth", testAuthRouter)
+}
 
 export default app

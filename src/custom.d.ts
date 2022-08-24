@@ -15,6 +15,15 @@ declare global {
   }
 }
 
+// Express typed requests
+export interface TypedRequestBody<T> extends Request {
+  body: T
+}
+
+export interface TypedRequestQuery<T extends Query> extends Request {
+  query: T
+}
+
 // Error types
 export type BackendError =
   { simpleError: string, code: number } |
