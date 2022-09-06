@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express"
 import * as sendResponseModule from "../../lib/sendResponse"
 import Token from "../../models/token"
 import User, { UserSearchParam } from "../../models/user"
-import { sendTokens, SALT_ROUNDS, CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR, handleOpenIdCallback, GOOGLE_FRONTEND_REDIR_ADDR } from "../../routes/auth"
+import { sendTokens, SALT_ROUNDS, CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR, handleOpenIdCallback, GOOGLE_FRONTEND_REDIR_ADDR, incorrectUserOrPassStr } from "../../routes/auth"
 import request from "supertest"
 import bcrypt from "bcrypt"
 import app from "../../expressApp"
@@ -263,7 +263,10 @@ describe("POST /users/login", () => {
 
     it("Responds with an error object with code 400", async () => {
       const response = await request(app).post(ROUTE).send({ username: USERNAME, password: PASSWORD })
-      expect(response.body).toEqual({ simpleError: "No users found", code: 400 })
+      expect(response.body).toEqual({
+        complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
+        code: 400
+      } as BackendError)
     })
   })
 

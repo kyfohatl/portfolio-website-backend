@@ -5,7 +5,7 @@ import request from "supertest"
 import app from "../../expressApp"
 import Updatable from "../../lib/Updatable"
 import Token from "../../models/token"
-import { CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR } from "../../routes/auth"
+import { CLEAR_ACC_TOKEN_COOKIE_STR, CLEAR_REF_TOKEN_COOKIE_STR, incorrectUserOrPassStr } from "../../routes/auth"
 import { AuthService, BackendError } from "../../custom"
 import { expressStorage } from "../../lib/storage"
 
@@ -69,13 +69,22 @@ describe("POST /users", () => {
   })
 })
 
+async function createTestUser(username: string, password: string) {
+  const response = await request(app).post("/auth/users").send({ username, password })
+  return response.body.success.tokens.refreshToken.token
+}
+
+async function deleteUserAndRefreshToken(username: string, refreshToken: string) {
+  await User.delete("username", username)
+  await Token.deleteRefreshToken(refreshToken)
+}
+
 describe("POST /users/login", () => {
   const ROUTE = "/auth/users/login"
+  const USERNAME = "someUsername"
+  const PASSWORD = "somePassword"
 
   describe("When given a valid username and a valid password", () => {
-    const USERNAME = "someUsername"
-    const PASSWORD = "somePassword"
-
     // Setup
     const responseContainer = new Updatable<request.Response>()
     beforeAll(async () => {
@@ -106,31 +115,56 @@ describe("POST /users/login", () => {
   })
 
   describe("When given a valid username and no password", () => {
-    const USERNAME = "someUsername"
-    const PASSWORD = "somePassword"
     let refreshToken: string
 
     const responseContainer = new Updatable<request.Response>()
     beforeAll(async () => {
-      // Create test user
-      const response = await request(app).post("/auth/users").send({ username: USERNAME, password: PASSWORD })
-      refreshToken = response.body.success.tokens.refreshToken.token
-
+      // Create test user and save the refresh token
+      refreshToken = await createTestUser(USERNAME, PASSWORD)
       // Send request
       responseContainer.update(await request(app).post(ROUTE).send({ username: USERNAME }))
     })
 
     // Cleanup test environment
     afterAll(async () => {
-      // Delete test user
-      await User.delete("username", USERNAME)
-      // Delete refresh token
-      await Token.deleteRefreshToken(refreshToken)
+      // Delete test user and refresh token
+      await deleteUserAndRefreshToken(USERNAME, refreshToken)
     })
 
     it("Responds with an error object with code 500", () => {
       expect(responseContainer.getContent().body).toHaveProperty("unknownError")
       expect(responseContainer.getContent().body.code).toBe(500)
+    })
+  })
+
+  describe("When given an invalid username with some password", () => {
+    it("Responds with an error that describes either the username or password as being incorrect", async () => {
+      const response = await request(app).post(ROUTE).send({ username: USERNAME, password: PASSWORD })
+      expect(response.body).toEqual({
+        complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
+        code: 400
+      } as BackendError)
+    })
+  })
+
+  describe("When given a valid username and an invalid password", () => {
+    const INVALID_PASS = "someInvalidPassword"
+
+    let refreshToken: string
+    beforeAll(async () => {
+      refreshToken = await createTestUser(USERNAME, PASSWORD)
+    })
+
+    afterAll(async () => {
+      await deleteUserAndRefreshToken(USERNAME, refreshToken)
+    })
+
+    it("Responds with an error that describes either the username or password as being incorrect", async () => {
+      const response = await request(app).post(ROUTE).send({ username: USERNAME, password: INVALID_PASS })
+      expect(response.body).toEqual({
+        complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
+        code: 400
+      } as BackendError)
     })
   })
 })
