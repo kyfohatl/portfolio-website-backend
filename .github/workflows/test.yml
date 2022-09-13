@@ -26,12 +26,12 @@ jobs:
         with:
           node-version: '17.5.0'
 
-      # Install node dependecies
-      - name: Install node dependecies
-        run: npm ci
+      # Install node dependencies
+      - name: Install node dependencies
+        run: npm i
         
       # Build the project
-      - name: Buil project
+      - name: Build project
         run: npm run build
         
       # Install Postgresql
