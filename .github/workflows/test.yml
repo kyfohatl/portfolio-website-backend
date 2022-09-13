@@ -49,12 +49,15 @@ jobs:
       #     psql -c "ALTER USER postgres WITH PASSWORD '1234pass';"
 
       # Create a postgres user
-      - name: Create postgres user
-        run: sudo -u postgres psql -c "CREATE USER testUser PASSWORD '1234pass'"
+      # - name: Create postgres user
+      #   run: sudo -u postgres psql -c "CREATE USER testUser PASSWORD '1234pass'"
+
+      - name: Setup postgres user password
+        run: sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234pass';"
           
       # Run sql script to setup the test database
       - name: Setup test database
-        run: sudo psql -U testUser -f setupTestDatabase.sql
+        run: sudo -u postgres psql -f setupTestDatabase.sql
 
      # Run all tests
       # - name: Run all tests
