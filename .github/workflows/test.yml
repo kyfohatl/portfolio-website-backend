@@ -28,7 +28,7 @@ jobs:
 
       # Install node dependencies
       - name: Install node dependencies
-        run: npm i
+        run: npm ci
         
       # Build the project
       - name: Build project
