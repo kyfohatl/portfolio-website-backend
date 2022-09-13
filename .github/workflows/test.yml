@@ -11,7 +11,7 @@ jobs:
     env:
       ACCESS_TOKEN_SECRET: 46131ad1377ebb6fcb7bc0d9d4b3be424a5d3ca300bae2880db1e74445e58dd72e4dcd01062d27c837a3a74e6f4eaaca44676b839b6eea997b31524cef2092d2
       REFRESH_TOKEN_SECRET: 6c10c749a07308d384ea10e666fd4177f638fd4ddc904ac48f344830be416a6c3e087725bd27f88d017278bf2f8cf3ce77057e6676ec44664f9184eae8be6aee
-      TEST_DATABASE_URL: postgresql://testUser:1234pass@localhost:5432/test_portfolio_backend
+      TEST_DATABASE_URL: postgresql://postgres:1234pass@localhost:5432/test_portfolio_backend
       PORT: 8000
       TEST_SERVER_PORT: 8001
       FRONTEND_SERVER_ADDR: http://localhost:3000
