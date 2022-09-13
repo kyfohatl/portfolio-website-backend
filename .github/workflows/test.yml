@@ -20,6 +20,10 @@ jobs:
       DOT_ENV_IS_RUNNING: true
     
     steps:
+      # Checkout the repo onto the runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
       # Setup node
       - name: Setup Node.js environment
         uses: actions/setup-node@v3.4.1
