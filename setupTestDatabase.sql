@@ -1,6 +1,12 @@
 -- Required to getting UUIDs working
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Create the test database
+CREATE DATABASE test_portfolio_backend;
+
+-- Connect to the test database
+\c test_portfolio_backend;
+
 -- To create the users table
 CREATE TABLE users (
 id UUID PRIMARY KEY UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
