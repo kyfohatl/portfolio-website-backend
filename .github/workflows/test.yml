@@ -54,7 +54,7 @@ jobs:
           
       # Run sql script to setup the test database
       - name: Setup test database
-        run: psql -f setupTestDatabase.sql
+        run: sudo psql -u testUser -f setupTestDatabase.sql
 
      # Run all tests
       # - name: Run all tests
