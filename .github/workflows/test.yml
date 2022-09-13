@@ -36,9 +36,7 @@ jobs:
         
       # Install Postgresql
       - name: Install Postgres
-        run: |
-          sudo apt update,
-          sudo apt install postgresql postgresql-contrib
+        run: sudo apt install postgresql postgresql-contrib
           
       # Start Postgresql
       - name: Start postgres
