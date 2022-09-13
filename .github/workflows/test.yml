@@ -31,12 +31,12 @@ jobs:
           node-version: '17.5.0'
 
       # Install node dependencies
-      - name: Install node dependencies
-        run: npm ci
+      # - name: Install node dependencies
+      #   run: npm ci
       
       # Build the project
-      - name: Build project
-        run: npm run build
+      # - name: Build project
+      #   run: npm run build
         
       # Install Postgresql
       - name: Install Postgres
@@ -49,11 +49,14 @@ jobs:
       # Change Postgresql user password
       - name: Setup postgres user password
         run: sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234pass';"
+
+      - name: Print out sql file contents
+        run: cat setupTestDatabase.sql
           
       # Run sql script to setup the test database
       - name: Setup test database
         run: sudo -u postgres psql -f setupTestDatabase.sql
 
      # Run all tests
-      - name: Run all tests
-        run: npm run test
+      # - name: Run all tests
+      #   run: npm run test
