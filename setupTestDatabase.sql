@@ -1,11 +1,11 @@
--- Required to getting UUIDs working
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Create the test database
 CREATE DATABASE test_portfolio_backend;
 
 -- Connect to the test database
 \c test_portfolio_backend;
+
+-- Required to getting UUIDs working
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- To create the users table
 CREATE TABLE users (
