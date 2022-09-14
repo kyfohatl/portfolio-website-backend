@@ -6,13 +6,15 @@ import Blog from "../models/blog"
 
 export const router = express.Router()
 
+export const DEFAULT_BLOGS_LIMIT = 8
+
 // Respond with a list of the most recently created blogs, in order, on the given page number
 router.get("/", async (req: TypedRequestQuery<{ page: string, limit: string }>, res) => {
   const pageNum = parseInt(req.query.page)
   if (pageNum === undefined || pageNum === null) return res.sendStatus(400)
 
   let limit = parseInt(req.query.limit)
-  if (!limit) limit = 8
+  if (!limit) limit = DEFAULT_BLOGS_LIMIT
 
   try {
     const blogs = await Blog.mostRecent(limit, pageNum)

@@ -18,6 +18,9 @@ interface BlogProps {
   tags: string[]
 }
 
+export const NEGATIVE_OFFSET_OR_LIMIT_TXT = "Offset or limit cannot be a negative number"
+export const NO_BLOGS_TXT = "No more blogs to show"
+
 export default class Blog {
   id: string
   userId: string
@@ -96,6 +99,8 @@ export default class Blog {
   // Returns a list of the most recently created blogs, limited by the given limit and starting from the
   // given offset
   static mostRecent(limit: number, offset: number) {
+    if (limit < 0 || offset < 0) throw { simpleError: NEGATIVE_OFFSET_OR_LIMIT_TXT, code: 404 } as BackendError
+
     const queryStr = `
       SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
       FROM blogs
@@ -110,7 +115,7 @@ export default class Blog {
     const promise = new Promise<Blog[]>((resolve, reject) => {
       Database.getClient().query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-        if (data.rowCount <= 0) return reject({ simpleError: "No more blogs to show", code: 404 } as BackendError)
+        if (data.rowCount <= 0) return reject({ simpleError: NO_BLOGS_TXT, code: 404 } as BackendError)
 
         const blogs = data.rows.map((blog) => {
           return new Blog(
