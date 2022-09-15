@@ -112,6 +112,7 @@ describe("GET /", () => {
             const response = await request(app).get(ROUTE).query({ page: OFFSET, limit: LIMIT })
 
             expect(response.body.success.blogs).toHaveLength(DEFAULT_BLOGS_LIMIT)
+            console.log(response.body.success.blogs)
 
             for (let i = 0; i < DEFAULT_BLOGS_LIMIT; i++) {
               expect(response.body.success.blogs[i].html).toBe(BASE_HTML + (i + OFFSET))
