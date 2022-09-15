@@ -147,5 +147,10 @@ describe("GET /", () => {
     })
   })
 
-  describe("When there are no blogs in the database", () => { })
+  describe("When there are no blogs in the database", () => {
+    it("It responds with an error object with code 404", async () => {
+      const response = await request(app).get(ROUTE).query({ page: 0, limit: 10 })
+      expect(response.body).toEqual({ simpleError: NO_BLOGS_TXT, code: 404 } as BackendError)
+    })
+  })
 })
