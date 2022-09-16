@@ -154,3 +154,9 @@ describe("GET /", () => {
     })
   })
 })
+
+describe("GET /:blogId", () => {
+  describe("When the requested blog exists", () => { })
+
+  describe("When the requested blog does not exist", () => { })
+})
