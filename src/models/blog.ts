@@ -181,8 +181,6 @@ export default class Blog {
     summaryImg: string,
     blogId?: string | null
   ) {
-    const curDate = new Date()
-
     let queryStr: string
     let queryVals: (string | Date)[]
     if (blogId) {
@@ -192,22 +190,22 @@ export default class Blog {
           SET
             html = $1,
             css = $2,
-            last_edited = $3,
-            summary_title = $4,
-            summary_description = $5,
-            summary_img = $6
-          WHERE id = $7
+            last_edited = NOW(),
+            summary_title = $3,
+            summary_description = $4,
+            summary_img = $5
+          WHERE id = $6
           RETURNING id;
         `
-      queryVals = [html, css, curDate, summaryTitle, summaryDescription, summaryImg, blogId]
+      queryVals = [html, css, summaryTitle, summaryDescription, summaryImg, blogId]
     } else {
       // We are creating a new blog
       queryStr = `
-          INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)
-          VALUES($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO blogs(user_id, html, css, created, last_edited, summary_title, summary_description, summary_img)
+          VALUES($1, $2, $3, NOW(), NOW(), $4, $5, $6)
           RETURNING id;
         `
-      queryVals = [userId, html, css, curDate, summaryTitle, summaryDescription, summaryImg]
+      queryVals = [userId, html, css, summaryTitle, summaryDescription, summaryImg]
     }
 
     const promise = new Promise<string>((resolve, reject) => {
