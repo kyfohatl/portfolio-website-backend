@@ -1,7 +1,7 @@
 import request from "supertest"
 import { BackendError } from "../../custom"
 import app from "../../expressApp"
-import Blog, { NEGATIVE_OFFSET_OR_LIMIT_TXT, NO_BLOGS_TXT } from "../../models/blog"
+import Blog, { BLOG_NOT_EXIST_TXT, NEGATIVE_OFFSET_OR_LIMIT_TXT, NO_BLOGS_TXT } from "../../models/blog"
 import User from "../../models/user"
 import { DEFAULT_BLOGS_LIMIT } from "../../routes/blog"
 import runTestEnvSetup from "../setup"
@@ -156,7 +156,45 @@ describe("GET /", () => {
 })
 
 describe("GET /:blogId", () => {
-  describe("When the requested blog exists", () => { })
+  const BASE_ROUTE = "/blog/"
 
-  describe("When the requested blog does not exist", () => { })
+  describe("When the requested blog exists", () => {
+    const HTML = "someHtml"
+    const CSS = "someCss"
+    let blogId: string
+
+    beforeAll(async () => {
+      // Create test blog
+      blogId = await Blog.save(user.id, HTML, CSS)
+    })
+
+    afterAll(async () => {
+      // Delete test blog
+      await Blog.delete(blogId, user.id)
+    })
+
+    it("Responds with the requested blog", async () => {
+      const response = await request(app).get(BASE_ROUTE + blogId)
+      expect(response.body.success.blog.id).toBe(blogId)
+      expect(response.body.success.blog.userId).toBe(user.id)
+      expect(response.body.success.blog.html).toBe(HTML)
+      expect(response.body.success.blog.css).toBe(CSS)
+    })
+  })
+
+  describe("When the requested blog does not exist", () => {
+    const BLOG_ID = "3ba6354e-3ccc-4b95-998f-fd263c7d7dd7"
+
+    it("Responds with an error object with code 400", async () => {
+      const response = await request(app).get(BASE_ROUTE + BLOG_ID)
+      expect(response.body).toEqual({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
+    })
+  })
+
+  describe("When the given blog id is not a valid uuid", () => {
+    it("Responds with an error object with code 500", async () => {
+      const response = await request(app).get(BASE_ROUTE + "someInvalidId")
+      expect(response.body.code).toBe(500)
+    })
+  })
 })

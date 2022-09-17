@@ -20,6 +20,7 @@ interface BlogProps {
 
 export const NEGATIVE_OFFSET_OR_LIMIT_TXT = "Offset or limit cannot be a negative number"
 export const NO_BLOGS_TXT = "No more blogs to show"
+export const BLOG_NOT_EXIST_TXT = "Given blog id does not exist!"
 
 export default class Blog {
   id: string
@@ -75,7 +76,7 @@ export default class Blog {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Could not find given blog id
-          return reject({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
+          return reject({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
         }
 
         const blog = data.rows[0]
