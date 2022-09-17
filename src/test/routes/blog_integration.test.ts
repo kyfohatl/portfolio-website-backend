@@ -56,6 +56,9 @@ describe("GET /", () => {
       function itBehavesLikeGetBlogsList(offset: number) {
         it("Responds with the list of requested blogs", async () => {
           const response = await request(app).get(ROUTE).query({ page: offset, limit: LIMIT })
+
+          console.log(response.body.success.blogs)
+
           expect(response.body.success.blogs).toHaveLength(LIMIT)
           for (let i = 0; i < LIMIT; i++) {
             expect(response.body.success.blogs[i].html).toBe(BASE_HTML + (i + offset))
@@ -196,5 +199,25 @@ describe("GET /:blogId", () => {
       const response = await request(app).get(BASE_ROUTE + "someInvalidId")
       expect(response.body.code).toBe(500)
     })
+  })
+})
+
+describe("POST /create", () => {
+  const ROUTE = "/blog/create"
+
+  describe("When requested by a valid user", () => {
+    describe("When the request is providing valid parameters", () => {
+      describe("When the user is creating a new blog", () => { })
+
+      describe("When the user is editing an existing blog", () => { })
+    })
+
+    describe("When the request is missing html", () => { })
+  })
+
+  describe("When requested by an invalid user", () => {
+    describe("When the user is unable to authenticate", () => { })
+
+    describe("When the user is able to authenticate, but is not authorized to edit the blog", () => { })
   })
 })
