@@ -40,6 +40,9 @@ describe("GET /", () => {
       // Create some test blogs
       for (let i = 0; i < NUM_BLOGS; i++) {
         blogIds.push(await Blog.save(user.id, BASE_HTML + i, BASE_CSS + i))
+        await new Promise<void>((resolve, reject) => {
+          setTimeout(resolve(), 5)
+        })
       }
     })
 
@@ -56,8 +59,6 @@ describe("GET /", () => {
       function itBehavesLikeGetBlogsList(offset: number) {
         it("Responds with the list of requested blogs", async () => {
           const response = await request(app).get(ROUTE).query({ page: offset, limit: LIMIT })
-
-          console.log(response.body.success.blogs)
 
           expect(response.body.success.blogs).toHaveLength(LIMIT)
           for (let i = 0; i < LIMIT; i++) {
