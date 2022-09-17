@@ -40,9 +40,6 @@ describe("GET /", () => {
       // Create some test blogs
       for (let i = 0; i < NUM_BLOGS; i++) {
         blogIds.push(await Blog.save(user.id, BASE_HTML + i, BASE_CSS + i))
-        await new Promise<void>((resolve, reject) => {
-          setTimeout(() => resolve(), 5)
-        })
       }
     })
 
