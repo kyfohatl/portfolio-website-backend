@@ -1,9 +1,11 @@
 import request from "supertest"
 import { BackendError } from "../../custom"
 import app from "../../expressApp"
+import Updatable from "../../lib/Updatable"
 import Blog, { BLOG_NOT_EXIST_TXT, NEGATIVE_OFFSET_OR_LIMIT_TXT, NO_BLOGS_TXT } from "../../models/blog"
+import Token from "../../models/token"
 import User from "../../models/user"
-import { DEFAULT_BLOGS_LIMIT } from "../../routes/blog"
+import { DEFAULT_BLOGS_LIMIT, MISSING_DETAILS_TXT } from "../../routes/blog"
 import runTestEnvSetup from "../setup"
 import runTestEnvTeardown from "../teardown"
 
@@ -202,15 +204,93 @@ describe("GET /:blogId", () => {
 
 describe("POST /create", () => {
   const ROUTE = "/blog/create"
+  let accToken: string
+  let refToken: string
 
   describe("When requested by a valid user", () => {
-    describe("When the request is providing valid parameters", () => {
-      describe("When the user is creating a new blog", () => { })
-
-      describe("When the user is editing an existing blog", () => { })
+    beforeAll(async () => {
+      // Create and save token pair
+      const tokenPair = await Token.generateTokenPair({ id: user.id })
+      accToken = tokenPair.accessToken.token
+      refToken = tokenPair.refreshToken.token
     })
 
-    describe("When the request is missing html", () => { })
+    afterAll(async () => {
+      // Delete refresh token
+      await Token.deleteRefreshToken(refToken)
+    })
+
+    describe("When the request is providing valid parameters", () => {
+      const HTML = "someHtml"
+      const CSS = "someCss"
+
+      function itBehavesLikeSaveBlog(responseContainer: Updatable<request.Response>, html: string, css: string) {
+        it("Responds with the blog id", () => {
+          expect(responseContainer.getContent().body.success.id).toBeTruthy()
+        })
+
+        it("Saves the blog to the database", async () => {
+          const blog = await Blog.where(responseContainer.getContent().body.success.id)
+          expect(blog.id).toBe(responseContainer.getContent().body.success.id)
+          expect(blog.userId).toBe(user.id)
+          expect(blog.html).toBe(html)
+          expect(blog.css).toBe(css)
+        })
+      }
+
+      describe("When the user is creating a new blog", () => {
+        const responseContainer = new Updatable<request.Response>()
+
+        beforeAll(async () => {
+          responseContainer.update(
+            await request(app).post(ROUTE).set("Cookie", [`accessToken=${accToken}`]).send({ html: HTML, css: CSS })
+          )
+        })
+
+        afterAll(async () => {
+          // Delete test blog
+          await Blog.delete(responseContainer.getContent().body.success.id, user.id)
+        })
+
+        itBehavesLikeSaveBlog(responseContainer, HTML, CSS)
+      })
+
+      describe("When the user is editing an existing blog", () => {
+        const MODIFIED_HTML = "someModifiedHtml"
+        const MODIFIED_CSS = "someModifiedCss"
+
+        const responseContainer = new Updatable<request.Response>()
+        let blogId: string
+
+        beforeAll(async () => {
+          // Create the test blog
+          blogId = await Blog.save(user.id, HTML, CSS)
+          // Now send the request with the modified blog
+          responseContainer.update(
+            await request(app).post(ROUTE).set("Cookie", [`accessToken=${accToken}`]).send(
+              { html: MODIFIED_HTML, css: MODIFIED_CSS, blogId: blogId }
+            )
+          )
+        })
+
+        afterAll(async () => {
+          // Delete test blog
+          await Blog.delete(blogId, user.id)
+        })
+
+        itBehavesLikeSaveBlog(responseContainer, MODIFIED_HTML, MODIFIED_CSS)
+      })
+    })
+
+    describe("When the request is missing html", () => {
+      it("Responds with an error object with code 400", async () => {
+        const response = await request(app).post(ROUTE).set("Cookie", [`accessToken=${accToken}`]).send(
+          { css: "someCSS" }
+        )
+
+        expect(response.body).toEqual({ simpleError: MISSING_DETAILS_TXT, code: 400 } as BackendError)
+      })
+    })
   })
 
   describe("When requested by an invalid user", () => {

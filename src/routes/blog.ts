@@ -40,6 +40,8 @@ interface CreateBlogProps {
   blogId?: string | null
 }
 
+export const MISSING_DETAILS_TXT = "Missing details!"
+
 // Create a new blog or edit an existing blog with the given information
 router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlogProps>, res: AuthenticatedResponse) => {
   const userId = res.locals.authUser.id
@@ -48,7 +50,7 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
   let blogId = req.body.blogId
 
   if (!userId || !html) {
-    return sendErrorResponse(res, { simpleError: "Missing details!", code: 400 })
+    return sendErrorResponse(res, { simpleError: MISSING_DETAILS_TXT, code: 400 })
   }
 
   try {
