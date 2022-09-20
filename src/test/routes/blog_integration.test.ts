@@ -2,7 +2,8 @@ import request from "supertest"
 import { BackendError } from "../../custom"
 import app from "../../expressApp"
 import Updatable from "../../lib/Updatable"
-import Blog, { BLOG_NOT_EXIST_TXT, NEGATIVE_OFFSET_OR_LIMIT_TXT, NO_BLOGS_TXT } from "../../models/blog"
+import { INVALID_TOKEN_TXT } from "../../middleware/auth"
+import Blog, { BLOG_NOT_EXIST_TXT, INVALID_BLOG_ID_TXT, NEGATIVE_OFFSET_OR_LIMIT_TXT, NOT_AUTH_TO_EDIT_TXT, NO_BLOGS_TXT } from "../../models/blog"
 import Token from "../../models/token"
 import User from "../../models/user"
 import { DEFAULT_BLOGS_LIMIT, MISSING_DETAILS_TXT } from "../../routes/blog"
@@ -207,6 +208,9 @@ describe("POST /create", () => {
   let accToken: string
   let refToken: string
 
+  const HTML = "someHtml"
+  const CSS = "someCss"
+
   describe("When requested by a valid user", () => {
     beforeAll(async () => {
       // Create and save token pair
@@ -221,9 +225,6 @@ describe("POST /create", () => {
     })
 
     describe("When the request is providing valid parameters", () => {
-      const HTML = "someHtml"
-      const CSS = "someCss"
-
       function itBehavesLikeSaveBlog(responseContainer: Updatable<request.Response>, html: string, css: string) {
         it("Responds with the blog id", () => {
           expect(responseContainer.getContent().body.success.id).toBeTruthy()
@@ -291,11 +292,61 @@ describe("POST /create", () => {
         expect(response.body).toEqual({ simpleError: MISSING_DETAILS_TXT, code: 400 } as BackendError)
       })
     })
+
+    describe("When the request is attempting to edit a blog that does not exists", () => {
+      it("Responds with an error object with code 404", async () => {
+        const response = await request(app).post(ROUTE).set("Cookie", [`accessToken=${accToken}`]).send(
+          { html: HTML, css: CSS, blogId: "558ea731-d7a0-4608-8903-6b317321de3c" }
+        )
+        expect(response.body).toEqual({ simpleError: INVALID_BLOG_ID_TXT, code: 404 } as BackendError)
+      })
+    })
   })
 
   describe("When requested by an invalid user", () => {
-    describe("When the user is unable to authenticate", () => { })
+    describe("When the user is unable to authenticate", () => {
+      it("Responds with an error object with code 401", async () => {
+        const response = await request(app).post(ROUTE).set("Cookie", ["accessToken=someInvalidToken123"]).send(
+          { html: HTML, css: CSS }
+        )
+        expect(response.body).toEqual({ simpleError: INVALID_TOKEN_TXT, code: 401 } as BackendError)
+      })
+    })
 
-    describe("When the user is able to authenticate, but is not authorized to edit the blog", () => { })
+    describe("When the user is able to authenticate, but is not authorized to edit the blog", () => {
+      const USERNAME2 = "someOtherBlogUsername"
+      const PASSWORD2 = "someOtherBlogPassword"
+      let newUser: User
+      let blogId: string
+      let accToken: string
+      let refToken: string
+
+      beforeAll(async () => {
+        // Create a new test user
+        newUser = await User.create(USERNAME2, PASSWORD2)
+        // Create a test blog with a different user
+        blogId = await Blog.save(user.id, HTML, CSS)
+        // Create a valid token pair with the new user's id
+        const tokenPair = await Token.generateTokenPair({ id: newUser.id })
+        accToken = tokenPair.accessToken.token
+        refToken = tokenPair.refreshToken.token
+      })
+
+      afterAll(async () => {
+        // Delete the refresh token
+        await Token.deleteRefreshToken(refToken)
+        // Delete test blog
+        await Blog.delete(blogId, user.id)
+        // Delete test user
+        await User.delete("username", USERNAME2)
+      })
+
+      it("Responds with an error object with code 403", async () => {
+        const response = await request(app).post(ROUTE).set("Cookie", [`accessToken=${accToken}`]).send(
+          { html: HTML, css: CSS, blogId }
+        )
+        expect(response.body).toEqual({ simpleError: NOT_AUTH_TO_EDIT_TXT, code: 403 } as BackendError)
+      })
+    })
   })
 })

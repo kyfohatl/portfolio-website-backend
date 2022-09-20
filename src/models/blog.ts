@@ -21,6 +21,8 @@ interface BlogProps {
 export const NEGATIVE_OFFSET_OR_LIMIT_TXT = "Offset or limit cannot be a negative number"
 export const NO_BLOGS_TXT = "No more blogs to show"
 export const BLOG_NOT_EXIST_TXT = "Given blog id does not exist!"
+export const NOT_AUTH_TO_EDIT_TXT = "User cannot edit or delete this blog"
+export const INVALID_BLOG_ID_TXT = "No blog with matching id found"
 
 export default class Blog {
   id: string
@@ -290,11 +292,11 @@ export default class Blog {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Blog id not found
-          return (reject({ simpleError: "No blog with matching id found", code: 404 } as BackendError))
+          return (reject({ simpleError: INVALID_BLOG_ID_TXT, code: 404 } as BackendError))
         }
 
         if (data.rows[0].user_id !== userId) {
-          return reject({ simpleError: "User cannot edit or delete this blog", code: 403 } as BackendError)
+          return reject({ simpleError: NOT_AUTH_TO_EDIT_TXT, code: 403 } as BackendError)
         }
 
         return resolve()

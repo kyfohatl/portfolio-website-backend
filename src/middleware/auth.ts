@@ -9,6 +9,8 @@ export interface AuthenticatedResponse extends Response {
   locals: { authUser: AuthUser }
 }
 
+export const INVALID_TOKEN_TXT = "Token invalid"
+
 // Express middleware function. Will respond with a 403 if failed to authenticate, otherwise
 // will add authenticated information to the request object
 export function authenticateToken(req: Request, res: AuthenticatedResponse, next: NextFunction) {
@@ -28,7 +30,7 @@ export function authenticateToken(req: Request, res: AuthenticatedResponse, next
     res.locals.authUser = data.user
     next()
   } else {
-    sendErrorResponse(res, { simpleError: "Token invalid", code: 401 })
+    sendErrorResponse(res, { simpleError: INVALID_TOKEN_TXT, code: 401 })
   }
 }
 
