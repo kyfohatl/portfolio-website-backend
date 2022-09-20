@@ -2,7 +2,6 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import express, { Request, Response } from "express"
-import cookieParser from "cookie-parser"
 import bcrypt from "bcrypt"
 
 import { AuthService, AuthUser, BackendError, BackendResponse, TypedReqCookies } from "../custom"
@@ -10,30 +9,17 @@ import User from "../models/user"
 import Token from "../models/token"
 import { sendErrorResponse, sendSuccessResponse } from "../lib/sendResponse"
 import { generators } from "openid-client"
-import bodyParser from "body-parser"
 import { expressStorage } from "../lib/storage"
 import { FACEBOOK_CALLBACK_ADDR, GOOGLE_CALLBACK_ADDR, initializeAuthClients } from "../middleware/auth"
+import { ensureValidPostgresErr } from "../lib/types/error"
 
 export const router = express.Router()
-router.use(express.json())
-router.use(cookieParser())
-router.use(bodyParser.urlencoded({ extended: false }))
-router.use(bodyParser.json())
-
-interface PostgresErr {
-  code: string
-}
-
-// Returns true if the given error is a valid postgres error and false otherwise
-function ensureValidPostgresErr(err: unknown): err is PostgresErr {
-  return (!!err && typeof err === "object" && "code" in err && typeof (err as PostgresErr).code === "string")
-}
 
 // Sends an access and refresh token pair via the response, both in the body (for mobile app frontends)
 // and as a cookie using the Set-Cookie header (for browser frontends)
-function sendTokens(res: Response, userId: string, redirectAddr?: string) {
+export async function sendTokens(res: Response, userId: string, redirectAddr?: string) {
   const authUser: AuthUser = { id: userId }
-  const tokens = Token.generateTokenPair(authUser)
+  const tokens = await Token.generateTokenPair(authUser)
 
   // We will send the tokens both in the body and set as a http-only cookie
   // Tokens set as a cookie will be used by browser frontends
@@ -53,14 +39,19 @@ function sendTokens(res: Response, userId: string, redirectAddr?: string) {
   }
 }
 
+export const SALT_ROUNDS = 10
+
 // Create a new user with the given username and password
 router.post("/users", async (req, res) => {
+  // Ensure a username and password are present
+  if (!(req.body.username && req.body.password))
+    return sendErrorResponse(res, { simpleError: "Username or password missing", code: 400 })
 
   try {
-    const passHash: string = await bcrypt.hash(req.body.password, 10)
+    const passHash: string = await bcrypt.hash(req.body.password, SALT_ROUNDS)
     const user = await User.create(req.body.username, passHash)
     // Send tokens to frontend
-    sendTokens(res, user.id)
+    await sendTokens(res, user.id)
   } catch (err) {
     const castError = err as BackendError
 
@@ -83,15 +74,17 @@ router.post("/users", async (req, res) => {
   }
 })
 
-const incorrectUserOrPassStr = "Username or password is incorrect"
+export const incorrectUserOrPassStr = "Username or password is incorrect"
 
 // Login the given user with the given username and password, if correct
 // Sends back jwt acc and refresh tokens both as cookies and in the response body
 router.post("/users/login", async (req, res) => {
+  if (!("username" in req.body))
+    return sendErrorResponse(res, { simpleError: "A valid username is required!", code: 400 } as BackendError)
+
   try {
     // Get the user
-    const users = await User.where("username", req.body.username)
-    const user = users[0]
+    const user = await User.where("username", req.body.username)
 
     // Ensure that this user is not a third party auth user
     if (!user.password) return sendErrorResponse(res, {
@@ -103,7 +96,7 @@ router.post("/users/login", async (req, res) => {
     if (await bcrypt.compare(req.body.password, user.password)) {
       // Correct credentials. Send access & refresh token pair
       // Both as a cookie and in the body
-      sendTokens(res, user.id)
+      await sendTokens(res, user.id)
     } else {
       // Incorrect credentials
       sendErrorResponse(res, {
@@ -113,17 +106,15 @@ router.post("/users/login", async (req, res) => {
     }
   } catch (err) {
     const castError = err as BackendError
-    if ("unknownError" in castError) {
-      sendErrorResponse(res, castError)
+    if ("simpleError" in castError) {
+      // Given username does not exist
+      sendErrorResponse(res, {
+        complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
+        code: 400
+      } as BackendError)
     } else {
-      if ("simpleError" in castError) {
-        sendErrorResponse(res, {
-          complexError: { email: incorrectUserOrPassStr, password: incorrectUserOrPassStr },
-          code: castError.code
-        } as BackendError)
-      } else {
-        res.status(500).json(err)
-      }
+      // Some other error
+      sendErrorResponse(res, err)
     }
   }
 })
@@ -132,7 +123,7 @@ router.post("/users/login", async (req, res) => {
 router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, res) => {
   // Ensure a refresh token is present in cookies
   const refreshToken = req.cookies.refreshToken
-  if (!refreshToken) return res.sendStatus(401)
+  if (!refreshToken) return sendErrorResponse(res, { simpleError: "No refresh token given!", code: 401 } as BackendError)
 
   try {
     // Check for the validity of the given refresh token
@@ -142,7 +133,7 @@ router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, re
       // Remove old refresh token
       await Token.deleteRefreshToken(refreshToken)
       // Generate new refresh & access pair and send
-      sendTokens(res, data.user.id)
+      await sendTokens(res, data.user.id)
     } else {
       // Refresh token is invalid
       sendErrorResponse(res, { simpleError: "Invalid refresh token", code: 403 } as BackendError)
@@ -152,6 +143,9 @@ router.post("/token", async (req: TypedReqCookies<{ refreshToken?: string }>, re
     sendErrorResponse(res, err as BackendError)
   }
 })
+
+export const CLEAR_ACC_TOKEN_COOKIE_STR = "accessToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
+export const CLEAR_REF_TOKEN_COOKIE_STR = "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
 
 // Logout user
 router.delete("/users/logout", async (req, res) => {
@@ -164,15 +158,17 @@ router.delete("/users/logout", async (req, res) => {
   }
 
   // Ensure a token is present
-  if (!refreshToken) return res.sendStatus(401)
+  if (!refreshToken) {
+    return sendErrorResponse(res, { simpleError: "No refresh token given!", code: 401 } as BackendResponse)
+  }
 
   try {
     await Token.deleteRefreshToken(refreshToken)
-    // Successfully deleted given refresh token
+    // Successfully deleted given refresh token, or given token does not exist in database
     // Clear cookies from frontend if they exist
     res.append("Set-Cookie", [
-      "accessToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure",
-      "refreshToken=\"\"; Max-age=0; HttpOnly; Path=/; SameSite=None; Secure"
+      CLEAR_ACC_TOKEN_COOKIE_STR,
+      CLEAR_REF_TOKEN_COOKIE_STR
     ])
     // Send response
     res.sendStatus(204)
@@ -223,9 +219,11 @@ router.get("/login/:authService", initializeAuthClients, async (req, res) => {
   res.redirect(url)
 })
 
+export const GOOGLE_FRONTEND_REDIR_ADDR = `${process.env.FRONTEND_SERVER_ADDR}/signin/google`
+
 // Handles the callback process for the given openid client authentication service type
 // Throws an error if unable to complete the process
-async function handleOpenIdCallback(req: Request, res: Response, clientType: AuthService) {
+export async function handleOpenIdCallback(req: Request, res: Response, clientType: AuthService) {
   const clientObjName = clientType + "AuthClient"
 
   // Ensure required information is present
@@ -263,8 +261,8 @@ async function handleOpenIdCallback(req: Request, res: Response, clientType: Aut
     // Otherwise get the id of the existing user
     const user = await User.getThirdPartyUserOrCreate(clientType, claims.sub, claims.email)
     // Openid authentication successful. Send tokens
-    if (clientType === "facebook") sendTokens(res, user.id)
-    else sendTokens(res, user.id, `${process.env.FRONTEND_SERVER_ADDR}/signin/google`)
+    if (clientType === "facebook") await sendTokens(res, user.id)
+    else await sendTokens(res, user.id, GOOGLE_FRONTEND_REDIR_ADDR)
   } catch (err) {
     throw err
   }

@@ -2,3 +2,4 @@
 *.rest
 .env
 queries.txt
+dist/

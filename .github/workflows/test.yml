@@ -1,0 +1,59 @@
+# Workflow for testing the code
+name: Run tests
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Setup required environment variables
+    env:
+      ACCESS_TOKEN_SECRET: 46131ad1377ebb6fcb7bc0d9d4b3be424a5d3ca300bae2880db1e74445e58dd72e4dcd01062d27c837a3a74e6f4eaaca44676b839b6eea997b31524cef2092d2
+      REFRESH_TOKEN_SECRET: 6c10c749a07308d384ea10e666fd4177f638fd4ddc904ac48f344830be416a6c3e087725bd27f88d017278bf2f8cf3ce77057e6676ec44664f9184eae8be6aee
+      TEST_DATABASE_URL: postgresql://postgres:1234pass@localhost:5432/test_portfolio_backend
+      PORT: 8000
+      TEST_SERVER_PORT: 8001
+      FRONTEND_SERVER_ADDR: http://localhost:3000
+      BACKEND_SERVER_ADDR: http://localhost:8000
+      TEST_SERVER_ADDR: http://localhost:8001
+      DOT_ENV_IS_RUNNING: true
+    
+    steps:
+      # Checkout the repo onto the runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Setup node
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v3.4.1
+        with:
+          node-version: '17.5.0'
+
+      # Install node dependencies
+      - name: Install node dependencies
+        run: npm ci
+      
+      # Build the project
+      - name: Build project
+        run: npm run build
+        
+      # Install Postgresql
+      - name: Install Postgres
+        run: sudo apt install postgresql postgresql-contrib
+          
+      # Start Postgresql
+      - name: Start postgres
+        run: sudo service postgresql start
+        
+      # Change Postgresql user password
+      - name: Setup postgres user password
+        run: sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234pass';"
+          
+      # Run sql script to setup the test database
+      - name: Setup test database
+        run: sudo -u postgres psql -f setupTestDatabase.sql
+
+     # Run all tests
+      - name: Run all tests
+        run: npm run test

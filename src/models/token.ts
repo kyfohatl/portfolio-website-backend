@@ -2,9 +2,9 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import jwt from "jsonwebtoken"
-import database from "../herokuClient"
 
 import { AuthUser, BackendError } from "../custom"
+import Database from "../lib/Database"
 
 interface VerifyTokenReturnFailure {
   isValid: false
@@ -15,7 +15,7 @@ interface VerifyTokenReturnSuccess {
   user: AuthUser
 }
 
-type VerifyTokenReturn = VerifyTokenReturnFailure | VerifyTokenReturnSuccess
+export type VerifyTokenReturn = VerifyTokenReturnFailure | VerifyTokenReturnSuccess
 
 const ACC_TOKEN_EXPIRY_MINUTES = 15
 const ACC_TOKEN_EXPIRY_SECONDS = ACC_TOKEN_EXPIRY_MINUTES * 60
@@ -41,18 +41,8 @@ export default class Token {
   static async verifyRefToken(token: string): Promise<VerifyTokenReturn> {
     if (!token) return { isValid: false }
 
-    const queryStr = `
-      SELECT EXISTS(
-        SELECT 1
-        FROM refresh_tokens
-        WHERE token = $1
-      );
-    `
-    const queryVals = [token]
-
     try {
-      const data = await database.query(queryStr, queryVals)
-      if (data.rows[0].exists) {
+      if (await Token.doesTokenExist(token)) {
         // Token exists in database. Verify it
         try {
           const jwtData = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string)
@@ -73,31 +63,41 @@ export default class Token {
     }
   }
 
+  // Returns true if the given refresh token exists in the database and false otherwise
+  static async doesTokenExist(token: string) {
+    const queryStr = `
+      SELECT EXISTS(
+        SELECT 1
+        FROM refresh_tokens
+        WHERE token = $1
+      );
+    `
+    const queryVals = [token]
+    const data = await Database.getClient().query<{ exists: boolean }>(queryStr, queryVals)
+
+    return data.rows[0].exists
+  }
+
   static generateAccessToken(authUser: AuthUser) {
     return {
       token: jwt.sign(
         authUser,
-        process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: ACC_TOKEN_EXPIRY_MINUTES + "m" }
+        process.env.ACCESS_TOKEN_SECRET as string,
+        { expiresIn: ACC_TOKEN_EXPIRY_MINUTES + "m" }
       ),
       expiresInSeconds: ACC_TOKEN_EXPIRY_SECONDS
     }
   }
 
-  static generateRefreshToken(authUser: AuthUser) {
+  static async generateRefreshToken(authUser: AuthUser) {
     const refreshToken = jwt.sign(
       authUser,
-      process.env.REFRESH_TOKEN_SECRET as string, { expiresIn: REF_TOKEN_EXPIRY_DAYS + "d" }
+      process.env.REFRESH_TOKEN_SECRET as string,
+      { expiresIn: REF_TOKEN_EXPIRY_DAYS + "d" }
     )
 
     // Add refresh token to the database
-    const queryStr = `
-      INSERT INTO refresh_tokens(token)
-      VALUES ($1);
-    `
-    const queryVals = [refreshToken]
-    database.query(queryStr, queryVals, (err, data) => {
-      if (err) throw ({ unknownError: err, code: 500 } as BackendError)
-    })
+    await Token.saveRefreshToken(refreshToken)
 
     return {
       token: refreshToken,
@@ -105,10 +105,28 @@ export default class Token {
     }
   }
 
-  static generateTokenPair(authUser: AuthUser) {
+  // Saves given refresh token to the database
+  static async saveRefreshToken(token: string) {
+    const queryStr = `
+      INSERT INTO refresh_tokens(token)
+      VALUES ($1);
+    `
+    const queryVals = [token]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
+        if (err) reject({ unknownError: err, code: 500 } as BackendError)
+        resolve()
+      })
+    })
+
+    return promise
+  }
+
+  static async generateTokenPair(authUser: AuthUser) {
     try {
       const accessToken = Token.generateAccessToken(authUser)
-      const refreshToken = Token.generateRefreshToken(authUser)
+      const refreshToken = await Token.generateRefreshToken(authUser)
       return { accessToken: accessToken, refreshToken: refreshToken }
     } catch (err) {
       throw err
@@ -122,7 +140,7 @@ export default class Token {
     `
     const queryVals = [refreshToken]
     const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
         if (err) return reject(err)
         return resolve()
       })

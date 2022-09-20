@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { Issuer } from "openid-client"
 import { AuthService, AuthUser, BackendResponse } from "../custom"
+import { sendErrorResponse } from "../lib/sendResponse"
 import { expressStorage } from "../lib/storage"
 import Token from "../models/token"
 
@@ -8,8 +9,10 @@ export interface AuthenticatedResponse extends Response {
   locals: { authUser: AuthUser }
 }
 
-// Express middleware function. Will respond with a 403 if failed to authenticate, otherwise will add 
-// authenticated information to the request object
+export const INVALID_TOKEN_TXT = "Token invalid"
+
+// Express middleware function. Will respond with a 403 if failed to authenticate, otherwise
+// will add authenticated information to the request object
 export function authenticateToken(req: Request, res: AuthenticatedResponse, next: NextFunction) {
   let token: string | undefined = undefined
   // First try to get access token from cookies
@@ -27,14 +30,14 @@ export function authenticateToken(req: Request, res: AuthenticatedResponse, next
     res.locals.authUser = data.user
     next()
   } else {
-    res.status(401).json({ simpleError: "Token invalid", code: 401 } as BackendResponse)
+    sendErrorResponse(res, { simpleError: INVALID_TOKEN_TXT, code: 401 })
   }
 }
 
 export const GOOGLE_CALLBACK_ADDR = `${process.env.BACKEND_SERVER_ADDR}/auth/login/google/callback`
 export const FACEBOOK_CALLBACK_ADDR = `${process.env.FRONTEND_SERVER_ADDR}/signin/facebook`
 
-async function initializeClient(type: AuthService) {
+export async function initializeClient(type: AuthService) {
   let discoveryAddr: string
   let clientId: string
   let callBackAddr: string

@@ -1,5 +1,10 @@
 import { BackendError } from "../custom"
-import database from "../herokuClient"
+import Database from "../lib/Database"
+
+interface TagProps {
+  blog_id: string,
+  tag: string
+}
 
 interface BlogProps {
   id: string,
@@ -12,6 +17,12 @@ interface BlogProps {
   summary_img: string,
   tags: string[]
 }
+
+export const NEGATIVE_OFFSET_OR_LIMIT_TXT = "Offset or limit cannot be a negative number"
+export const NO_BLOGS_TXT = "No more blogs to show"
+export const BLOG_NOT_EXIST_TXT = "Given blog id does not exist!"
+export const NOT_AUTH_TO_EDIT_TXT = "User cannot edit or delete this blog"
+export const INVALID_BLOG_ID_TXT = "No blog with matching id found"
 
 export default class Blog {
   id: string
@@ -46,7 +57,7 @@ export default class Blog {
     this.tags = tags
   }
 
-  // Returns the blog with the given blogId if it exists
+  // Returns the blog with the given blogId if it exists, otherwise throws an error
   static where(blogId: string) {
     const queryStr = `
       SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
@@ -63,11 +74,11 @@ export default class Blog {
     const queryVals = [blogId]
 
     const promise = new Promise<Blog>((resolve, reject) => {
-      database.query<BlogProps>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Could not find given blog id
-          return reject({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
+          return reject({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
         }
 
         const blog = data.rows[0]
@@ -91,6 +102,8 @@ export default class Blog {
   // Returns a list of the most recently created blogs, limited by the given limit and starting from the
   // given offset
   static mostRecent(limit: number, offset: number) {
+    if (limit < 0 || offset < 0) throw { simpleError: NEGATIVE_OFFSET_OR_LIMIT_TXT, code: 404 } as BackendError
+
     const queryStr = `
       SELECT id, user_id, html, css, created, summary_title, summary_description, summary_img, array_agg(tag) as tags
       FROM blogs
@@ -103,9 +116,9 @@ export default class Blog {
     const queryVals = [limit, offset]
 
     const promise = new Promise<Blog[]>((resolve, reject) => {
-      database.query<BlogProps>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<BlogProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-        if (data.rowCount <= 0) return reject({ simpleError: "No more blogs to show", code: 404 } as BackendError)
+        if (data.rowCount <= 0) return reject({ simpleError: NO_BLOGS_TXT, code: 404 } as BackendError)
 
         const blogs = data.rows.map((blog) => {
           return new Blog(
@@ -170,8 +183,6 @@ export default class Blog {
     summaryImg: string,
     blogId?: string | null
   ) {
-    const curDate = new Date()
-
     let queryStr: string
     let queryVals: (string | Date)[]
     if (blogId) {
@@ -181,26 +192,26 @@ export default class Blog {
           SET
             html = $1,
             css = $2,
-            last_edited = $3,
-            summary_title = $4,
-            summary_description = $5,
-            summary_img = $6
-          WHERE id = $7
+            last_edited = NOW(),
+            summary_title = $3,
+            summary_description = $4,
+            summary_img = $5
+          WHERE id = $6
           RETURNING id;
         `
-      queryVals = [html, css, curDate, summaryTitle, summaryDescription, summaryImg, blogId]
+      queryVals = [html, css, summaryTitle, summaryDescription, summaryImg, blogId]
     } else {
       // We are creating a new blog
       queryStr = `
-          INSERT INTO blogs(user_id, html, css, created, summary_title, summary_description, summary_img)
-          VALUES($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO blogs(user_id, html, css, created, last_edited, summary_title, summary_description, summary_img)
+          VALUES($1, $2, $3, NOW(), NOW(), $4, $5, $6)
           RETURNING id;
         `
-      queryVals = [userId, html, css, curDate, summaryTitle, summaryDescription, summaryImg]
+      queryVals = [userId, html, css, summaryTitle, summaryDescription, summaryImg]
     }
 
     const promise = new Promise<string>((resolve, reject) => {
-      database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           return reject({ simpleError: "Error: Could not save blog into database", code: 500 } as BackendError)
@@ -217,14 +228,15 @@ export default class Blog {
   static async removeTags(blogId: string) {
     const queryStr = `
       DELETE FROM blog_tags
-      WHERE blog_id = $1;
+      WHERE blog_id = $1
+      RETURNING blog_id, tag;
     `
     const queryVals = [blogId]
 
-    const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+    const promise = new Promise<TagProps[]>((resolve, reject) => {
+      Database.getClient().query<TagProps>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-        return resolve()
+        return resolve(data.rows)
       })
     })
 
@@ -257,7 +269,7 @@ export default class Blog {
     }
 
     const promise = new Promise<void>((resolve, reject) => {
-      database.query(queryStr, queryVals, (err, data) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         return resolve()
       })
@@ -276,15 +288,15 @@ export default class Blog {
     const queryVals = [blogId]
 
     const promise = new Promise<void>((resolve, reject) => {
-      database.query<{ user_id: string }>(queryStr, queryVals, (err, data) => {
+      Database.getClient().query<{ user_id: string }>(queryStr, queryVals, (err, data) => {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Blog id not found
-          return (reject({ simpleError: "No blog with matching id found", code: 404 } as BackendError))
+          return (reject({ simpleError: INVALID_BLOG_ID_TXT, code: 404 } as BackendError))
         }
 
         if (data.rows[0].user_id !== userId) {
-          return reject({ simpleError: "User cannot edit or delete this blog", code: 403 } as BackendError)
+          return reject({ simpleError: NOT_AUTH_TO_EDIT_TXT, code: 403 } as BackendError)
         }
 
         return resolve()
@@ -295,7 +307,7 @@ export default class Blog {
   }
 
   // Saves the given blog with the given information into the database
-  // If a blog id is provided, th existing blog will be overridden, otherwise a new blog will be created
+  // If a blog id is provided, the existing blog will be overridden, otherwise a new blog will be created
   // An existing blog can only be edited by the user that originally created the blog
   static async save(userId: string, html: string, css: string, blogId?: string | null) {
     try {
@@ -334,33 +346,46 @@ export default class Blog {
   // Deletes the blog with the given id in the database, if the request comes from the same user that
   // created the blog
   static async delete(blogId: string, userId: string) {
-    try {
-      // Ensure the user can delete this blog
-      await Blog.canEdit(blogId, userId)
+    // Ensure the user can delete this blog
+    await Blog.canEdit(blogId, userId)
 
-      const queryStr = `
-        DELETE FROM blogs
-        WHERE id = $1
-        RETURNING id
-      `
-      const queryVals = [blogId]
+    const queryStr = `
+      DELETE FROM blogs
+      WHERE id = $1
+      RETURNING id
+    `
+    const queryVals = [blogId]
 
-      const promise = new Promise<string>((resolve, reject) => {
-        database.query<{ id: string }>(queryStr, queryVals, (err, data) => {
-          if (err) return reject({ unknownError: err, code: 500 } as BackendError)
-          if (data.rowCount <= 0) {
-            // Blog with given id does not exist
-            return reject({ simpleError: "No blog with given id found", code: 404 } as BackendError)
-          }
+    const promise = new Promise<string>((resolve, reject) => {
+      Database.getClient().query<{ id: string }>(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        if (data.rowCount <= 0) {
+          // Blog with given id does not exist
+          return reject({ simpleError: "No blog with given id found", code: 404 } as BackendError)
+        }
 
-          // Blog successfully deleted
-          return resolve(data.rows[0].id)
-        })
+        // Blog successfully deleted
+        return resolve(data.rows[0].id)
       })
+    })
 
-      return promise
-    } catch (err) {
-      throw { unknownError: err, code: 500 }
-    }
+    return promise
+  }
+
+  static async deleteAllUserBlogs(userId: string) {
+    const queryStr = `
+      DELETE FROM blogs
+      WHERE user_id = $1;
+    `
+    const queryVals = [userId]
+
+    const promise = new Promise<void>((resolve, reject) => {
+      Database.getClient().query(queryStr, queryVals, (err, data) => {
+        if (err) return reject({ unknownError: err, code: 500 } as BackendError)
+        resolve()
+      })
+    })
+
+    return promise
   }
 }
