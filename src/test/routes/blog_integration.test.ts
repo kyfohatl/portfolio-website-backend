@@ -350,3 +350,90 @@ describe("POST /create", () => {
     })
   })
 })
+
+describe("DELETE /:blogId", () => {
+  const BASE_ROUTE = "/blog/"
+  const HTML = "someHtml"
+  const CSS = "someCSS"
+  let accToken: string
+  let refToken: string
+
+  beforeAll(async () => {
+    // Create token pair
+    const tokenPair = await Token.generateTokenPair({ id: user.id })
+    accToken = tokenPair.accessToken.token
+    refToken = tokenPair.refreshToken.token
+  })
+
+  afterAll(async () => {
+    // Delete refresh token
+    await Token.deleteRefreshToken(refToken)
+  })
+
+  describe("When requested by a valid user", () => {
+    describe("When requesting to delete a valid blog", () => {
+      let blogId: string
+      let deletedBlogId: string
+
+      beforeAll(async () => {
+        // Create a test blog
+        blogId = await Blog.save(user.id, HTML, CSS)
+        // Now attempt to delete it
+        const response = await request(app).delete(BASE_ROUTE + blogId).set("Cookie", [`accessToken=${accToken}`])
+        deletedBlogId = response.body.success.id
+      })
+
+      it("Deletes the blog from the database", async () => {
+        let threwErr = true
+        try {
+          await Blog.where(blogId)
+          threwErr = false
+        } catch (err) {
+          expect(err).toEqual({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
+        }
+        expect(threwErr).toBe(true)
+      })
+
+      it("Returns the id of the deleted blog", () => {
+        expect(deletedBlogId).toBe(blogId)
+      })
+    })
+
+    describe("When requesting to delete a blog that does not exist", () => {
+      it("Responds with an error object with code 404", async () => {
+        const response = await request(app).delete(BASE_ROUTE + "f6f87a68-96da-43f0-a81c-44701f92727c").set(
+          "Cookie", [`accessToken=${accToken}`]
+        )
+        expect(response.body).toEqual({ simpleError: INVALID_BLOG_ID_TXT, code: 404 } as BackendError)
+      })
+    })
+  })
+
+  describe("When requested by an invalid user", () => {
+    describe("When the user is not allowed to delete the given blog", () => {
+      const USERNAME2 = "someOtherBlogUsername"
+      const PASSWORD2 = "someOtherBlogPassword"
+      let newUser: User
+      let blogId: string
+
+      beforeAll(async () => {
+        // Create a new user
+        newUser = await User.create(USERNAME2, PASSWORD2)
+        // Create a test blog under the new user
+        blogId = await Blog.save(newUser.id, HTML, CSS)
+      })
+
+      afterAll(async () => {
+        // Delete test blog
+        await Blog.delete(blogId, newUser.id)
+        // Delete test user
+        await User.delete("username", USERNAME2)
+      })
+
+      it("Responds with an error object with code 403", async () => {
+        const response = await request(app).delete(BASE_ROUTE + blogId).set("Cookie", [`accessToken=${accToken}`])
+        expect(response.body).toEqual({ simpleError: NOT_AUTH_TO_EDIT_TXT, code: 403 } as BackendError)
+      })
+    })
+  })
+})
