@@ -29,4 +29,25 @@ export default class Database {
     if (!Database.#client) throw new Error("Client not initialized!")
     return Database.#client
   }
+
+  // Clears all rows of all tables in the database
+  static async clearDb() {
+    const queryStr = `
+      BEGIN;
+      TRUNCATE TABLE refresh_tokens CASCADE;
+      TRUNCATE TABLE blog_tags CASCADE;
+      TRUNCATE TABLE blogs CASCADE;
+      TRUNCATE TABLE auth_providers CASCADE;
+      TRUNCATE TABLE users CASCADE;
+      COMMIT;
+    `
+    const promise = new Promise<void>((resolve, reject) => {
+      Database.getClient().query(queryStr, (err, data) => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+
+    return promise
+  }
 }
