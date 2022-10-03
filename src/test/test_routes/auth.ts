@@ -1,5 +1,5 @@
 import express from "express"
-import { BackendError, TypedRequestBody } from "../../custom"
+import { AuthService, BackendError, TypedRequestBody } from "../../custom"
 import { sendErrorResponse, sendSuccessResponse } from "../../lib/sendResponse"
 import Token from "../../models/token"
 import User from "../../models/user"
@@ -30,6 +30,23 @@ router.post("/user", async (req: TypedRequestBody<{ username?: string, password?
     const newUser = await User.create(req.body.username, req.body.password)
     const tokens = Token.generateTokenPair({ id: newUser.id })
     sendSuccessResponse(res, { tokens, userId: newUser.id })
+  } catch (err) {
+    sendErrorResponse(res, err)
+  }
+})
+
+// Create a third party user on the database
+router.post("/tp_user", async (
+  req: TypedRequestBody<{ username: string, provider: AuthService, providerUserId: string }>,
+  res
+) => {
+  try {
+    const user = await User.getThirdPartyUserOrCreate(
+      req.body.provider,
+      req.body.providerUserId,
+      req.body.username.toLowerCase()
+    )
+    sendSuccessResponse(res, user.id)
   } catch (err) {
     sendErrorResponse(res, err)
   }
