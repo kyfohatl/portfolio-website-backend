@@ -55,7 +55,7 @@ router.post("/create", authenticateToken, async (req: TypedRequestBody<CreateBlo
 
   try {
     blogId = await Blog.save(userId, html, css, blogId)
-    sendSuccessResponse(res, { id: blogId })
+    sendSuccessResponse(res, { id: blogId }, 201)
   } catch (err) {
     sendErrorResponse(res, err as BackendError)
   }
