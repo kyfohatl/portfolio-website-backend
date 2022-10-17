@@ -78,7 +78,7 @@ export default class Blog {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Could not find given blog id
-          return reject({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
+          return reject({ simpleError: BLOG_NOT_EXIST_TXT, code: 404 } as BackendError)
         }
 
         const blog = data.rows[0]
