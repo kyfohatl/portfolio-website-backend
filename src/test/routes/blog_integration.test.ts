@@ -189,9 +189,9 @@ describe("GET /:blogId", () => {
   describe("When the requested blog does not exist", () => {
     const BLOG_ID = "3ba6354e-3ccc-4b95-998f-fd263c7d7dd7"
 
-    it("Responds with an error object with code 400", async () => {
+    it("Responds with an error object with code 404", async () => {
       const response = await request(app).get(BASE_ROUTE + BLOG_ID)
-      expect(response.body).toEqual({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
+      expect(response.body).toEqual({ simpleError: BLOG_NOT_EXIST_TXT, code: 404 } as BackendError)
     })
   })
 
@@ -389,7 +389,7 @@ describe("DELETE /:blogId", () => {
           await Blog.where(blogId)
           threwErr = false
         } catch (err) {
-          expect(err).toEqual({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
+          expect(err).toEqual({ simpleError: BLOG_NOT_EXIST_TXT, code: 404 } as BackendError)
         }
         expect(threwErr).toBe(true)
       })
