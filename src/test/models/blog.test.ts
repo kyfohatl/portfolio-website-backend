@@ -215,7 +215,7 @@ describe("where", () => {
     })
 
     describe("When the blog id is a valid uuid but does not exist on the database", () => {
-      it("Returns a simpleError object with code 400", async () => {
+      it("Returns a simpleError object with code 404", async () => {
         let thrownErr
         try {
           await Blog.where("21cbb5c4-2c8e-43f1-82a1-f679df241ef4")
@@ -223,7 +223,7 @@ describe("where", () => {
           thrownErr = err
         }
 
-        expect(thrownErr).toEqual({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
+        expect(thrownErr).toEqual({ simpleError: "Given blog id does not exist!", code: 404 } as BackendError)
       })
     })
   })
@@ -480,7 +480,7 @@ describe("delete", () => {
           await Blog.where(blog.id)
         } catch (err) {
           const castErr = err as BackendError
-          expect(err).toEqual({ simpleError: "Given blog id does not exist!", code: 400 } as BackendError)
+          expect(err).toEqual({ simpleError: "Given blog id does not exist!", code: 404 } as BackendError)
         }
         expect(deletedId).toBeUndefined()
       })
@@ -534,7 +534,12 @@ describe("mostRecent", () => {
     // Now create the blogs
     for (let i = 1; i < NUM_BLOGS + 1; i++) {
       const [html, css] = createSampleHtmlAndCss(i)
-      await Blog.save(newUser.id, html, css)
+
+      // Set a fake date with day increment
+      const nextDate = new Date()
+      nextDate.setDate(nextDate.getDate() + i)
+
+      await Blog.save(newUser.id, html, css, undefined, nextDate.toISOString())
     }
   })
 

@@ -78,10 +78,10 @@ export default class Blog {
         if (err) return reject({ unknownError: err, code: 500 } as BackendError)
         if (data.rowCount <= 0) {
           // Could not find given blog id
-          return reject({ simpleError: BLOG_NOT_EXIST_TXT, code: 400 } as BackendError)
+          return reject({ simpleError: BLOG_NOT_EXIST_TXT, code: 404 } as BackendError)
         }
 
-        const blog = data.rows[0]
+        const blog: BlogProps = data.rows[0]
         return resolve(new Blog(
           blog.id,
           blog.user_id,
@@ -181,7 +181,8 @@ export default class Blog {
     summaryTitle: string,
     summaryDescription: string,
     summaryImg: string,
-    blogId?: string | null
+    blogId?: string | null,
+    creationDate?: string
   ) {
     let queryStr: string
     let queryVals: (string | Date)[]
@@ -204,7 +205,7 @@ export default class Blog {
       // We are creating a new blog
       queryStr = `
           INSERT INTO blogs(user_id, html, css, created, last_edited, summary_title, summary_description, summary_img)
-          VALUES($1, $2, $3, NOW(), NOW(), $4, $5, $6)
+          VALUES($1, $2, $3, ${creationDate ? `'${creationDate}'` : "NOW()"}, NOW(), $4, $5, $6)
           RETURNING id;
         `
       queryVals = [userId, html, css, summaryTitle, summaryDescription, summaryImg]
@@ -309,7 +310,13 @@ export default class Blog {
   // Saves the given blog with the given information into the database
   // If a blog id is provided, the existing blog will be overridden, otherwise a new blog will be created
   // An existing blog can only be edited by the user that originally created the blog
-  static async save(userId: string, html: string, css: string, blogId?: string | null) {
+  static async save(
+    userId: string,
+    html: string,
+    css: string,
+    blogId?: string | null,
+    creationDate?: string
+  ) {
     try {
       // If an existing blog is being edited, ensure that the given user can edit the given blog
       if (blogId) {
@@ -327,7 +334,8 @@ export default class Blog {
         summary.title,
         summary.description,
         summary.image,
-        blogId
+        blogId,
+        creationDate
       )
 
       if (blogId) {

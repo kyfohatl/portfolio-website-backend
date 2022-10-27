@@ -553,6 +553,8 @@ describe("handleOpenIdCallback", () => {
         json: jest.fn((body?: any) => { return {} })
       } as unknown as Response
 
+      RES.status = jest.fn((code: number) => RES)
+
       // Mock tokenSet.claims method
       const mockClaims = jest.fn(() => {
         return { email: EMAIL, sub: SUB }
@@ -608,7 +610,7 @@ describe("handleOpenIdCallback", () => {
       res: Response,
       mockClaims: jest.Mock<{ email: string, sub: string }, []>
     ) {
-      it("Call the callBackParams method of the base client with the given request", () => {
+      it("Calls the callBackParams method of the base client with the given request", () => {
         expect(expressStorage[type + "AuthClient"].callbackParams).toHaveBeenCalledWith(req)
       })
 

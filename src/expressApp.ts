@@ -11,6 +11,8 @@ import cors from "cors"
 import { router as authRouter } from "./routes/auth"
 import { router as blogRouter } from "./routes/blog"
 import { router as testAuthRouter } from "./test/test_routes/auth"
+import { router as testGeneralRouter } from "./test/test_routes/general"
+import { router as testBlogRouter } from "./test/test_routes/blog"
 import cookieParser from "cookie-parser"
 import bodyParser from "body-parser"
 
@@ -45,6 +47,8 @@ export function isRunningInTestEnv() {
 // If running in a test environment, also add test routes
 if (isRunningInTestEnv()) {
   app.use("/test/auth", testAuthRouter)
+  app.use("/test/general", testGeneralRouter)
+  app.use("/test/blog", testBlogRouter)
 }
 
 export default app

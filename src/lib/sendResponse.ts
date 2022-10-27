@@ -17,5 +17,5 @@ export function sendErrorResponse(res: Response, err?: unknown) {
 }
 
 export function sendSuccessResponse(res: Response, success: any, code?: number) {
-  res.json({ success: success, code: code } as BackendResponse)
+  res.status(code ? code : 200).json({ success: success, code: code } as BackendResponse)
 }
