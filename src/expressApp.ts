@@ -45,13 +45,10 @@ export function isRunningInTestEnv() {
 }
 
 // If running in a test environment, also add test routes
-// if (isRunningInTestEnv()) {
-//   app.use("/test/auth", testAuthRouter)
-//   app.use("/test/general", testGeneralRouter)
-//   app.use("/test/blog", testBlogRouter)
-// }
-app.use("/test/auth", testAuthRouter)
-app.use("/test/general", testGeneralRouter)
-app.use("/test/blog", testBlogRouter)
+if (isRunningInTestEnv()) {
+  app.use("/test/auth", testAuthRouter)
+  app.use("/test/general", testGeneralRouter)
+  app.use("/test/blog", testBlogRouter)
+}
 
 export default app
