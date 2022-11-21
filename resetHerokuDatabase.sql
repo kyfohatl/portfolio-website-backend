@@ -3,7 +3,8 @@
 -- Required to getting UUIDs working
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Remove existing tables
+-- Since we only have one database, we cannot delte the old databas eand create a new one, so we have to remove all 
+-- existing tables, then recreate them
 DROP TABLE IF EXISTS refresh_tokens CASCADE;
 DROP TABLE IF EXISTS blog_tags CASCADE;
 DROP TABLE IF EXISTS blogs CASCADE;
